@@ -879,8 +879,69 @@ data_table$source <- as.factor(data_table$source)
 data_table$source <- fct_relevel(data_table$source,"GHG","CO2-FFI","CO2-LUC","CH4","N2O","F-gases")
 data_table <- spread(data_table,cut,value)
 
-write.xlsx(data_table,'results/results.xlsx')
+write.xlsx(data_table,'results/section_2_2_table.xlsx')
+write.csv(data_table,'results/section_2_2_table.csv',row.names = FALSE)
+write.csv(spread(data_ghg_aggregated,source,value),'results/ghg_emissions_co2e.csv',row.names = FALSE)
+write.xlsx(spread(data_ghg_aggregated,source,value),'results/ghg_emissions_co2e.xlsx')
+
 
 ```
+## Comparison to AR6
 
+```{r comparison_ar6}
+
+# AR6: 59 ± 6.6 GtCO2e in 2019, 56 ± 6.0 GtCO2e from 2010-2019
+
+load("sources/IPCC AR6 WG3 data/data_land_co2.RData")
+load("sources/IPCC AR6 WG3 data/data_edgar_ghg.RData")
+data_ar6 <- edgar_ghg %>% 
+  group_by(year) %>% 
+  summarise_at(vars(CO2,CH4,N2O,Fgas),sum,na.rm=TRUE)
+data_ar6 <- left_join(data_ar6,land %>% 
+                        filter(year>=1970) %>% 
+                        group_by(year) %>% 
+                        summarise(`CO2-LUC`=sum(mean,na.rm=TRUE)))
+data_ar6  <- gather(data_ar6,source,value_ar6,-year) %>% 
+  mutate(value_ar6=value_ar6/1e9) %>% 
+  mutate(source=ifelse(source=="CO2","CO2-FFI",source)) %>% 
+  mutate(source=ifelse(source=="Fgas","F-gases",source))
+
+### 2019
+
+data_comparison <- left_join(data_ghg_aggregated,data_ar6) %>% 
+  filter(year==2019)
+
+
+data_comparison <- left_join(data_comparison,uncertainties,by="source")
+
+data_comparison <- data_comparison %>% 
+  mutate(uncertainty_abs=value*uncertainty) %>% 
+  mutate(uncertainty_abs=uncertainty_abs^2) %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm=TRUE),
+            uncertainty_abs=sqrt(sum(uncertainty_abs,na.rm=TRUE)))
+
+
+### 2010-2019
+
+
+data_comparison <- data_ghg_aggregated %>% 
+  filter(year>=2010) %>% 
+  filter(year<=2019) %>% 
+  group_by(source) %>% 
+  summarise(value=mean(value))
+
+data_comparison <- left_join(data_comparison,uncertainties,by="source")
+
+data_comparison <- data_comparison %>% 
+  mutate(uncertainty_abs=value*uncertainty) %>% 
+  mutate(uncertainty_abs=uncertainty_abs^2) %>% 
+  mutate(year="2010-2019") %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm=TRUE),
+            uncertainty_abs=sqrt(sum(uncertainty_abs,na.rm=TRUE)))
+
+
+
+```
 
