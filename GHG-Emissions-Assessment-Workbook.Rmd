@@ -813,10 +813,10 @@ data_table <- data_ghg_aggregated
 # 2022
 
 data_table <- data_table %>% 
-  mutate(cut=ifelse(year>=1970 & year <=1979,"1970s",NA)) %>% 
-  mutate(cut=ifelse(year>=1980 & year <=1989,"1980s",cut)) %>% 
-  mutate(cut=ifelse(year>=1990 & year <=1999,"1990s",cut)) %>% 
-  mutate(cut=ifelse(year>=2000 & year <=2009,"2000s",cut)) %>% 
+  mutate(cut=ifelse(year>=1970 & year <=1979,"1970-1979",NA)) %>% 
+  mutate(cut=ifelse(year>=1980 & year <=1989,"1980-1989",cut)) %>% 
+  mutate(cut=ifelse(year>=1990 & year <=1999,"1990-1999",cut)) %>% 
+  mutate(cut=ifelse(year>=2000 & year <=2009,"2000-2009",cut)) %>% 
   mutate(cut=ifelse(year>=2012 & year <=2021,"2012-2021",cut)) %>% 
   filter(!is.na(cut))
 
