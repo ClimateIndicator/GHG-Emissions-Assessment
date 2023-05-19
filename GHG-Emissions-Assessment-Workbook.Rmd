@@ -21,7 +21,7 @@ library(ggrepel)
 library(patchwork)
 library(zoo)
 library(RColorBrewer)
-
+ 
 
 ```
 
@@ -37,7 +37,7 @@ locate_shares <- function(data,grouping,years){
     arrange_at(vars(`year`,all_of(grouping))) %>%
     mutate(location=value/2)
   
-  z = nrow(unique(shares[,grouping]))
+  z = length(unique(shares[,grouping]))
   
   for (j in seq(0,z*(years-1),z)) {
     # for every region
@@ -148,18 +148,18 @@ data_gcb_co2_luc <- data_gcb_co2_luc %>%
   mutate(var="co2_luc") %>% 
   mutate(units="GtCO2")
 
-data_gcb_co2_luc_dgvm <- read.xlsx("sources/GCB/Global_Carbon_Budget_2022v1.0.xlsx",sheet=5,startRow = 29,cols = c(1,33,34))
-names(data_gcb_co2_luc_dgvm) <- c("year","dgvm_mean","dgvm_spread")
-data_gcb_co2_luc_dgvm <- data_gcb_co2_luc_dgvm %>% 
-  mutate(dgvm_high=dgvm_mean+dgvm_spread) %>% 
-  mutate(dgvm_low=dgvm_mean-dgvm_spread) %>% 
-  select(year,dgvm_high,dgvm_low,dgvm_mean)
-data_gcb_co2_luc_dgvm <- gather(data_gcb_co2_luc_dgvm,source,value,-year)
-data_gcb_co2_luc_dgvm <- data_gcb_co2_luc_dgvm %>% 
-  mutate(value=value*(44/12)) %>% 
-  mutate(var="co2_luc") %>% 
-  mutate(units="GtCO2") %>% 
-  mutate(source=ifelse(source=="dgvm_mean","DGVM mean",source))
+# data_gcb_co2_luc_dgvm <- read.xlsx("sources/GCB/Global_Carbon_Budget_2022v1.0.xlsx",sheet=5,startRow = 29,cols = c(1,33,34))
+# names(data_gcb_co2_luc_dgvm) <- c("year","dgvm_mean","dgvm_spread")
+# data_gcb_co2_luc_dgvm <- data_gcb_co2_luc_dgvm %>% 
+#   mutate(dgvm_high=dgvm_mean+dgvm_spread) %>% 
+#   mutate(dgvm_low=dgvm_mean-dgvm_spread) %>% 
+#   select(year,dgvm_high,dgvm_low,dgvm_mean)
+# data_gcb_co2_luc_dgvm <- gather(data_gcb_co2_luc_dgvm,source,value,-year)
+# data_gcb_co2_luc_dgvm <- data_gcb_co2_luc_dgvm %>% 
+#   mutate(value=value*(44/12)) %>% 
+#   mutate(var="co2_luc") %>% 
+#   mutate(units="GtCO2") %>% 
+#   mutate(source=ifelse(source=="dgvm_mean","DGVM mean",source))
 
 
 # EDGAR CO2 (https://edgar.jrc.ec.europa.eu/dataset_ghg70)
@@ -259,78 +259,64 @@ data_ceds_n2o <- data_ceds_n2o %>%
   mutate(var="n2o")
 
 
-# PRIMAP (from Chris Smith's compiled data)
+# PRIMAP
 
-data_primap <- read.csv("sources/primap_ceds_gfed_inv_1750-2021.csv")
-
+data_primap <- read.csv("sources/PRIMAP/Guetschow-et-al-2023a-PRIMAP-hist_v2.4.2_final_09-Mar-2023.csv")
 data_primap <- gather(data_primap,year,value,X1750:X2021)
 data_primap$year <- gsub("X","",data_primap$year)
+names(data_primap) <- c("source","scenario","area","gas","unit","category","year","value") 
 data_primap <- data_primap %>% 
-  select(var=Variable,units=Unit,year,value)
-
-data_primap_ch4 <- data_primap %>% 
-  filter(var=="Emissions|CH4") %>% 
-  mutate(units="MtCH4") %>% 
-  mutate(source="PRIMAP v2.4.2*") %>% 
-  mutate(var="ch4")
+  filter(scenario=="HISTCR") %>% 
+  filter(category=="M.0.EL") %>% 
+  filter(area=="EARTH")
 
 data_primap_n2o <- data_primap %>% 
-  filter(var=="Emissions|N2O") %>% 
+  filter(gas=="N2O") %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm = TRUE)/1000) %>% 
   mutate(units="MtN2O") %>% 
   mutate(source="PRIMAP v2.4.2*") %>% 
   mutate(var="n2o")
 
+data_primap_ch4 <- data_primap %>% 
+  filter(gas=="CH4") %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm = TRUE)/1000) %>% 
+  mutate(units="MtCH4") %>% 
+  mutate(source="PRIMAP v2.4.2*") %>% 
+  mutate(var="ch4")
+
 data_primap_co2_ffi <- data_primap %>% 
-  filter(var=="Emissions|CO2|Energy and Industrial Processes") %>% 
+  filter(gas=="CO2") %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm = TRUE)/1e6) %>% 
   mutate(units="GtCO2") %>% 
   mutate(source="PRIMAP v2.4.2") %>% 
   mutate(var="co2_ffi")
 
 
-## Total GHG emissions (from Chris Smith's compiled data)
+## F-gas emissions (from Chris Smith's compiled data)
 
-data_ghg <- read.csv("sources/primap_ceds_gfed_inv_1750-2021.csv")
-list_fgases <- data_ghg$Variable[12:52]
-data_ghg <- gather(data_ghg,year,value,X1750:X2021)
-data_ghg$year <- gsub("X","",data_ghg$year)
-data_ghg <- data_ghg %>% 
+data_fgases <- read.csv("sources/primap_ceds_gfed_inv_1750-2021.csv")
+list_fgases <- data_fgases$Variable[12:52]
+data_fgases <- gather(data_fgases,year,value,X1750:X2021)
+data_fgases$year <- gsub("X","",data_fgases$year)
+data_fgases <- data_fgases %>% 
   mutate(gas=Variable) %>% 
-  select(var=Variable,gas,units=Unit,year,value)
+  select(var=Variable,gas,units=Unit,year,value) %>% 
+  filter(var %in% c(list_fgases))
 
-data_ghg$gas <- gsub("Emissions","",data_ghg$gas)
-data_ghg$gas <- gsub("\\|","",data_ghg$gas)
-data_ghg$gas <- gsub("-","",data_ghg$gas)
-data_ghg <- data_ghg %>% 
-  mutate(gas=ifelse(gas=="CO2Energy and Industrial Processes","CO2",gas)) %>% 
-  mutate(gas=ifelse(gas=="CO2AFOLU","CO2",gas))
+data_fgases$gas <- gsub("Emissions","",data_fgases$gas)
+data_fgases$gas <- gsub("\\|","",data_fgases$gas)
+data_fgases$gas <- gsub("-","",data_fgases$gas)
 
 #join GWPs from openclimatedata
 
 gwps <- read.csv("https://raw.githubusercontent.com/openclimatedata/globalwarmingpotentials/main/globalwarmingpotentials.csv",skip = 9)
 
-data_ghg <- left_join(data_ghg,gwps %>% select(gas=Species,AR6GWP100))
-data_ghg <- data_ghg %>% 
-  mutate(AR6GWP100=ifelse(gas=="CO2",1,AR6GWP100))
+data_fgases <- left_join(data_fgases,gwps %>% select(gas=Species,AR6GWP100))
 
-
-# change CO2-FFI in the GHG data from PRIMAP to GCB, so we can use the latest year projection 
-
-data_ghg <- data_ghg %>% 
-  filter(var!="Emissions|CO2|Energy and Industrial Processes")
-
-data_ghg_co2_ffi <- data_gcb_co2_ffi %>% 
-  mutate(var="Emissions|CO2|Energy and Industrial Processes") %>% 
-  mutate(gas="CO2") %>% 
-  mutate(units="Gt CO2/yr") %>% 
-  mutate(AR6GWP100=1) %>% 
-  select(var,gas,units,year,value,AR6GWP100)
-
-data_ghg <- rbind(data_ghg,data_ghg_co2_ffi)
-
-## F-gas emissions (from Chris Smith's compiled data)
-
-data_fgases <- data_ghg %>% 
-  filter(var %in% c(list_fgases)) %>% 
+data_fgases <- data_fgases %>% 
   mutate(value=value*AR6GWP100)
 
 list_fgases <- data.frame(var=list_fgases)
@@ -348,26 +334,44 @@ data_fgases <- left_join(data_fgases,list_fgases,by="var")
 data_fgases <- data_fgases %>% 
   group_by(year,group) %>% 
   summarise(value=sum(value,na.rm=TRUE)/1e6) %>% 
-  mutate(source=paste0(group,"\n CIP v2023.04*")) %>% 
+  mutate(source=ifelse(group=="ODS F-gases",paste0(group,"\n CIP v2023.04"),paste0(group,"\n CIP v2023.04*"))) %>% 
   mutate(var="fgases") %>% 
   mutate(units="GtCO2e") %>% 
   select(-group)
 
 
+## GFED data
+
+data_gfed_ch4 <- read.xlsx("sources/GFED/GFED4.1s.xlsx",sheet="GFED_CH4",rows = c(4,19))
+data_gfed_ch4 <- gather(data_gfed_ch4,year,value,`1997`:`2022`)
+data_gfed_ch4 <- data_gfed_ch4 %>% 
+  mutate(var="ch4") %>% 
+  select(year,var,value) %>% 
+  mutate(value=value*1E10) %>% #1e10 grams to grams
+  mutate(value=value/1e6) %>% 
+  mutate(value=value/1e6)
 
 
+data_gfed_n2o <- read.xlsx("sources/GFED/GFED4.1s.xlsx",sheet="GFED_N2O",rows = c(4,19))
+data_gfed_n2o <- gather(data_gfed_n2o,year,value,`1997`:`2022`)
+data_gfed_n2o <- data_gfed_n2o %>% 
+  mutate(var="n2o") %>% 
+  select(year,var,value) %>% 
+  mutate(value=value*1E9) %>% #1e9 grams to grams
+  mutate(value=value/1e6) %>% 
+  mutate(value=value/1e6)
 
 ```
 
 # Join data
 
-```{r join}
+```{r join_databases}
 
 ## join datasets together
 
 data <- rbind(data_gcb_co2_ffi,data_edgar_co2_ffi)
 data <- rbind(data,data_gcb_co2_luc)
-data <- rbind(data,data_gcb_co2_luc_dgvm %>% filter(source!="dgvm_high") %>% filter(source!="dgvm_low"))
+#data <- rbind(data,data_gcb_co2_luc_dgvm %>% filter(source!="dgvm_high") %>% filter(source!="dgvm_low"))
 data <- rbind(data,data_edgar_ch4)
 data <- rbind(data,data_edgar_n2o)
 data <- rbind(data,data_ceds_co2_ffi)
@@ -394,8 +398,8 @@ data_labels <- data_labels %>%
   mutate(value=as.numeric(value)) %>% 
   mutate(source=as.factor(source))
 
-data_labels$source <- fct_relevel(data_labels$source,"DGVM mean",after=Inf)
-data$source <- fct_relevel(data$source,"DGVM mean",after=Inf)
+# data_labels$source <- fct_relevel(data_labels$source,"DGVM mean",after=Inf)
+# data$source <- fct_relevel(data$source,"DGVM mean",after=Inf)
 
 
 ## custom color palette for labels and lines
@@ -407,38 +411,70 @@ colors <- c(sample(colors[1:10]),colors[11])
 
 ```
 
+```{r join_ghg_data}
+
+data_ghg <- rbind(data_gcb_co2_ffi,data_gcb_co2_luc)
+
+## use Chris's data which includes GFED
+
+# data_ch4_n2o_gfed <- read.csv("sources/primap_ceds_gfed_inv_1750-2021.csv")
+# data_ch4_n2o_gfed <- gather(data_ch4_n2o_gfed,year,value,X1750:X2021)
+# data_ch4_n2o_gfed$year <- gsub("X","",data_ch4_n2o_gfed$year)
+# data_ch4_n2o_gfed <- data_ch4_n2o_gfed %>% 
+#   filter(Variable %in% c("Emissions|CH4","Emissions|N2O")) %>% 
+#   mutate(units=ifelse(Variable=="Emissions|CH4","MtCH4","MtN2O")) %>% 
+#   mutate(var=ifelse(Variable=="Emissions|CH4","ch4","n2o")) %>% 
+#   mutate(source="PRIMAP v2.4.2 & GFED") %>% 
+#   select(year,value,units,source,var) 
+#   
+# data_ghg <- rbind(data_ghg,data_ch4_n2o_gfed)
+data_ghg <- rbind(data_ghg,data_fgases)
+data_ghg <- rbind(data_ghg,data_primap_ch4)
+data_ghg <- rbind(data_ghg,data_primap_n2o)
+
+data_ghg <- data_ghg %>% 
+  filter(source!="H&N") %>% 
+  filter(source!="OSCAR") %>% 
+  filter(source!="BLUE")
+
+## Convert CH4 and N2O to CO2e and fix units
+
+data_ghg <- data_ghg %>% 
+  mutate(gwp=ifelse(var=="ch4",gwps$AR6GWP100[gwps$Species=="CH4"],1)) %>% 
+  mutate(gwp=ifelse(var=="n2o",gwps$AR6GWP100[gwps$Species=="N2O"],gwp)) %>% 
+  mutate(value=value*gwp) %>% 
+  mutate(value=ifelse(var %in% c("ch4","n2o"),value/1000,value))
+
+## remove ODS fgases
+data_ghg <- data_ghg %>% 
+  mutate(exclude=grepl("ODS",source)) %>% 
+  filter(exclude=="FALSE") %>% 
+  mutate(units="GtCO2e") %>% 
+  select(-gwp,-exclude)
+
+
+```
+
 # Generate plots
 ## GHGs
 
 ```{r plot_ghg,fig.height=3,fig.width=5}
 
-data_ghg_aggregated <- data_ghg %>% 
-  filter(!is.na(AR6GWP100)) %>% 
-  mutate(unit_multiplier=ifelse(grepl("Gt",units),1,NA)) %>% 
-  mutate(unit_multiplier=ifelse(grepl("Mt",units),1000,unit_multiplier)) %>%  
-  mutate(unit_multiplier=ifelse(grepl("kt",units),1e6,unit_multiplier)) %>% 
-  mutate(value=value*AR6GWP100/unit_multiplier)
-
-data_ghg_aggregated <- data_ghg_aggregated %>% 
-  mutate(source=ifelse(var=="Emissions|CO2|Energy and Industrial Processes","CO2-FFI",NA)) %>% 
-  mutate(source=ifelse(var=="Emissions|CO2|AFOLU","CO2-LUC",source)) %>% 
-  mutate(source=ifelse(var=="Emissions|CH4","CH4",source)) %>% 
-  mutate(source=ifelse(var=="Emissions|N2O","N2O",source)) %>% 
-  mutate(source=ifelse(is.na(source),"F-gases",source)) %>% 
+data_ghg <- data_ghg %>% 
+  mutate(label=ifelse(var=="co2_ffi","CO2-FFI",NA)) %>% 
+  mutate(label=ifelse(var=="co2_luc","CO2-LULUCF",label)) %>% 
+  mutate(label=ifelse(var=="ch4","CH4",label)) %>% 
+  mutate(label=ifelse(var=="n2o","N2O",label)) %>% 
+  mutate(label=ifelse(is.na(label),"F-gases",label)) %>% 
   mutate(year=as.numeric(year))
 
-data_ghg_aggregated$source <- as.factor(data_ghg_aggregated$source)
-data_ghg_aggregated$source <- fct_relevel(data_ghg_aggregated$source,"F-gases","N2O","CH4","CO2-LUC","CO2-FFI")
-
-
-data_ghg_aggregated <- data_ghg_aggregated %>% 
-  group_by(year,source) %>% 
-  summarise(value=sum(value,na.rm=TRUE))
+data_ghg$label <- as.factor(data_ghg$label)
+data_ghg$label <- fct_relevel(data_ghg$label,"F-gases","N2O","CH4","CO2-LULUCF","CO2-FFI")
 
 colors_greys = colorRampPalette(brewer.pal(8, "Greys"))(8)[2:6]
 
-p_ghg_1 <- data_ghg_aggregated %>% 
-  ggplot(.,aes(x=year,y=value,fill=source)) +
+p_ghg_1 <- data_ghg %>% 
+  ggplot(.,aes(x=year,y=value,fill=label)) +
   geom_area(color="#636363") +
   coord_cartesian(clip = 'off') +
   theme_wl() +
@@ -458,13 +494,12 @@ p_ghg_1 <- data_ghg_aggregated %>%
   labs(title=bquote(bold("(a) Global total greenhouse gas emissions")),
        subtitle=bquote("Gt" ~CO[2]* "e"))
 
-data_ghg_aggregated_labels <- data_ghg_aggregated %>% filter(year==2021)
-data_ghg_aggregated_labels <- locate_shares(data_ghg_aggregated_labels,"source",1)
+data_ghg_labels <- data_ghg %>% filter(year==2021) %>% select(year=year,label,value) %>% arrange(label)
+data_ghg_labels <- locate_shares(data_ghg_labels,"label",1)
 
 
-
-p_ghg_2 <- data_ghg_aggregated_labels %>%
-  ggplot(.,aes(x=year,y=location,label=source)) +
+p_ghg_2 <- data_ghg_labels %>%
+  ggplot(.,aes(x=year,y=location,label=label)) +
   geom_text_repel(
     nudge_x      = 4,
     direction    = "y",
@@ -553,15 +588,15 @@ p_co2
 
 ```{r plot_co2_luc,fig.height=3,fig.width=5}
 
-dgvm <- spread(data_gcb_co2_luc_dgvm,source,value)
+# dgvm <- spread(data_gcb_co2_luc_dgvm,source,value)
 
 p_co2_luc_1 <- data %>% 
   filter(var=="co2_luc") %>% 
-  filter(source!="dgvm_high") %>% 
-  filter(source!="dgvm_low") %>% 
+  #filter(source!="dgvm_high") %>% 
+  #filter(source!="dgvm_low") %>% 
   ggplot(.,aes(x=year,y=value,color=source,group=source)) +
-  geom_ribbon(data=dgvm,inherit.aes=FALSE,aes(x=year,ymin=dgvm_low,ymax=dgvm_high),
-              fill="grey",alpha=0.3) +
+  # geom_ribbon(data=dgvm,inherit.aes=FALSE,aes(x=year,ymin=dgvm_low,ymax=dgvm_high),
+  #             fill="grey",alpha=0.3) +
   geom_path(size=1) +
   coord_cartesian(clip = 'off') +
   theme_wl() +
@@ -578,7 +613,7 @@ p_co2_luc_1 <- data %>%
         plot.title = element_text(size=11),
         plot.title.position = "plot",
         plot.subtitle = element_text(size=11,hjust=0.09)) +
-  labs(title=bquote(bold("(c) Global" ~CO[2]* " emissions from land use change (LUC)")),
+  labs(title=bquote(bold("(c) Global" ~CO[2]* " emissions from land use change (LULUCF)")),
        subtitle=bquote("Gt" ~CO[2]* ""))
 
 
@@ -792,7 +827,7 @@ p_fgases
 
 ## Combines plot of all sources
 
-```{r plot_emissions,fig.height=9,fig.width=10,fig.path="../results/",dev=c('png','pdf','svg')}
+```{r plot_emissions,fig.height=9,fig.width=10,fig.path="results/",dev=c('png','pdf','svg')}
 
 wrap_elements(p_ghg) + wrap_elements(p_co2) + wrap_elements(p_co2_luc) + wrap_elements(p_ch4) + wrap_elements(p_n2o) + wrap_elements(p_fgases) + plot_layout(ncol=2)
 
@@ -802,7 +837,7 @@ wrap_elements(p_ghg) + wrap_elements(p_co2) + wrap_elements(p_co2_luc) + wrap_el
 
 ```{r table}
 
-data_table <- data_ghg_aggregated
+data_table <- data_ghg
 
 # 1970s
 # 1980s
@@ -823,14 +858,18 @@ data_table <- data_table %>%
 data_table_ghgs <- data_table
 
 data_table <- data_table %>% 
-  group_by(source,cut) %>% 
+  group_by(label,cut) %>% 
   summarise(value=mean(value))
 
-data_table <- rbind(data_table,data_ghg_aggregated %>% filter(year==2021) %>% rename(cut=year) %>% mutate(cut=as.character(cut)))
+data_table <- rbind(data_table,data_ghg %>% 
+                      filter(year==2021) %>% 
+                      rename(cut=year) %>% 
+                      mutate(cut=as.character(cut)) %>% 
+                      select(label,cut,value))
 
-uncertainties = data.frame(source=c("CO2-FFI","CO2-LUC","CH4","N2O","F-gases"),uncertainty=c(0.08,0.7,0.3,0.6,0.3))
+uncertainties = data.frame(label=c("CO2-FFI","CO2-LULUCF","CH4","N2O","F-gases"),uncertainty=c(0.08,0.7,0.3,0.6,0.3))
 
-data_table <- left_join(data_table,uncertainties,by="source")
+data_table <- left_join(data_table,uncertainties,by="label")
 data_table <- data_table %>% 
   mutate(uncertainty_abs=value*uncertainty) %>% 
   mutate(value=signif(value,2)) %>% 
@@ -841,14 +880,14 @@ data_table <- data_table %>%
 
 ##
 
-data_table_ghgs <- rbind(data_table_ghgs,data_ghg_aggregated %>% 
+data_table_ghgs <- rbind(data_table_ghgs,data_ghg %>% 
                            filter(year==2021) %>% 
                            mutate(cut="2021"))
 
-data_table_ghgs <- left_join(data_table_ghgs,uncertainties,by="source")
+data_table_ghgs <- left_join(data_table_ghgs,uncertainties,by="label")
 
 data_table_ghgs <- data_table_ghgs %>% 
-  group_by(cut,source,uncertainty) %>% 
+  group_by(cut,label,uncertainty) %>% 
   summarise(value=mean(value,na.rm=TRUE))
 
 data_table_ghgs <- data_table_ghgs %>% 
@@ -859,7 +898,7 @@ data_table_ghgs <- data_table_ghgs %>%
             uncertainty_abs=sqrt(sum(uncertainty_abs,na.rm=TRUE)))
 
 data_table_ghgs <- data_table_ghgs %>% 
-  mutate(source="GHG") %>% 
+  mutate(label="GHG") %>% 
   mutate(value=signif(value,2)) %>% 
   mutate(uncertainty_abs=signif(uncertainty_abs,2)) %>% 
   mutate(value=paste0(value,"±",uncertainty_abs))
@@ -871,18 +910,18 @@ data_table <- data_table %>%
 ## add GCB 2022 projections
 data_table <- data_table %>% 
   ungroup() %>% 
-  add_row(source="CO2-FFI",cut="2022 (projection)",value="37±3") %>% 
-  add_row(source="CO2-LUC",cut="2022 (projection)",value="3.9±2.8")
+  add_row(label="CO2-FFI",cut="2022 (projection)",value="37±3") %>% 
+  add_row(label="CO2-LULUCF",cut="2022 (projection)",value="3.9±2.8")
   
 
-data_table$source <- as.factor(data_table$source)
-data_table$source <- fct_relevel(data_table$source,"GHG","CO2-FFI","CO2-LUC","CH4","N2O","F-gases")
+data_table$label <- as.factor(data_table$label)
+data_table$label <- fct_relevel(data_table$label,"GHG","CO2-FFI","CO2-LULUCF","CH4","N2O","F-gases")
 data_table <- spread(data_table,cut,value)
 
 write.xlsx(data_table,'results/section_2_2_table.xlsx')
 write.csv(data_table,'results/section_2_2_table.csv',row.names = FALSE)
-write.csv(spread(data_ghg_aggregated,source,value),'results/ghg_emissions_co2e.csv',row.names = FALSE)
-write.xlsx(spread(data_ghg_aggregated,source,value),'results/ghg_emissions_co2e.xlsx')
+write.csv(spread(data_ghg,label,value),'results/ghg_emissions_co2e.csv',row.names = FALSE)
+write.xlsx(spread(data_ghg,label,value),'results/ghg_emissions_co2e.xlsx')
 
 
 ```
@@ -901,18 +940,24 @@ data_ar6 <- left_join(data_ar6,land %>%
                         filter(year>=1970) %>% 
                         group_by(year) %>% 
                         summarise(`CO2-LUC`=sum(mean,na.rm=TRUE)))
-data_ar6  <- gather(data_ar6,source,value_ar6,-year) %>% 
+data_ar6  <- gather(data_ar6,label,value_ar6,-year) %>% 
   mutate(value_ar6=value_ar6/1e9) %>% 
-  mutate(source=ifelse(source=="CO2","CO2-FFI",source)) %>% 
-  mutate(source=ifelse(source=="Fgas","F-gases",source))
+  mutate(label=ifelse(label=="CO2","CO2-FFI",label)) %>% 
+  mutate(label=ifelse(label=="Fgas","F-gases",label)) %>% 
+  mutate(label=ifelse(label=="CO2-LUC","CO2-LULUCF",label))
+
 
 ### 2019
 
-data_comparison <- left_join(data_ghg_aggregated,data_ar6) %>% 
+data_comparison <- left_join(data_ghg,data_ar6) %>% 
   filter(year==2019)
 
+data_comparison <- left_join(data_comparison,uncertainties,by="label")
 
-data_comparison <- left_join(data_comparison,uncertainties,by="source")
+data_comparison <- data_comparison %>% 
+  mutate(difference=value-value_ar6) %>% 
+  filter(var!="co2_luc") %>% 
+  filter(var!="ch4")
 
 data_comparison <- data_comparison %>% 
   mutate(uncertainty_abs=value*uncertainty) %>% 
@@ -924,14 +969,13 @@ data_comparison <- data_comparison %>%
 
 ### 2010-2019
 
-
-data_comparison <- data_ghg_aggregated %>% 
+data_comparison <- data_ghg %>% 
   filter(year>=2010) %>% 
   filter(year<=2019) %>% 
-  group_by(source) %>% 
+  group_by(label) %>% 
   summarise(value=mean(value))
 
-data_comparison <- left_join(data_comparison,uncertainties,by="source")
+data_comparison <- left_join(data_comparison,uncertainties,by="label")
 
 data_comparison <- data_comparison %>% 
   mutate(uncertainty_abs=value*uncertainty) %>% 
