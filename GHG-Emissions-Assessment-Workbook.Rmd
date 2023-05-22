@@ -920,8 +920,36 @@ data_table <- spread(data_table,cut,value)
 
 write.xlsx(data_table,'results/section_2_2_table.xlsx')
 write.csv(data_table,'results/section_2_2_table.csv',row.names = FALSE)
-write.csv(spread(data_ghg,label,value),'results/ghg_emissions_co2e.csv',row.names = FALSE)
-write.xlsx(spread(data_ghg,label,value),'results/ghg_emissions_co2e.xlsx')
+write.csv(spread(data_ghg %>% select(-var,-source),label,value),'results/ghg_emissions_co2e.csv',row.names = FALSE)
+
+metadata <- data_ghg %>% 
+  filter(year==2020) %>% 
+  select(gas=label,source,units_co2e=units) %>% 
+  mutate(units_original=ifelse(source!="PRIMAP v2.4.2*",units_co2e,"MtCH4")) %>% 
+  mutate(units_original=ifelse(gas=="N2O","MtN2O",units_original))
+metadata$source <- gsub("\\*","",metadata$source)
+
+
+wb <- createWorkbook()
+addWorksheet(wb,"metadata")
+addWorksheet(wb,"data_co2e")
+writeData(wb,"metadata",metadata, colNames = T, rowNames = F)
+writeData(wb,"data_co2e",spread(data_ghg %>% select(-var,-source,-units),label,value), colNames = T, rowNames = F)
+
+
+### add a sheet with the data in original units
+
+data_ghg_original <- rbind(data_gcb_co2_ffi,data_gcb_co2_luc %>% filter(source=="GCB v2022*"))
+data_ghg_original <- rbind(data_ghg_original,data_primap_ch4)
+data_ghg_original <- rbind(data_ghg_original,data_primap_n2o)
+data_ghg_original <- rbind(data_ghg_original,data_fgases %>% filter(grepl("UNFCCC",source)))
+
+data_ghg_original <- left_join(data_ghg_original,data_ghg %>% select(var,label) %>% distinct(),by="var")
+
+addWorksheet(wb,"data_original_units")
+writeData(wb,"data_original_units",spread(data_ghg_original %>% select(-var,-source,-units),label,value), colNames = T, rowNames = F)
+
+saveWorkbook(wb,'results/ghg_emissions_co2e.xlsx',overwrite=T)
 
 
 ```
