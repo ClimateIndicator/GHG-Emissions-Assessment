@@ -275,7 +275,7 @@ data_primap_n2o <- data_primap %>%
   group_by(year) %>% 
   summarise(value=sum(value,na.rm = TRUE)/1000) %>% 
   mutate(units="MtN2O") %>% 
-  mutate(source="PRIMAP v2.4.2*") %>% 
+  mutate(source="PRIMAP CR v2.4.2*") %>% 
   mutate(var="n2o")
 
 data_primap_ch4 <- data_primap %>% 
@@ -283,7 +283,7 @@ data_primap_ch4 <- data_primap %>%
   group_by(year) %>% 
   summarise(value=sum(value,na.rm = TRUE)/1000) %>% 
   mutate(units="MtCH4") %>% 
-  mutate(source="PRIMAP v2.4.2*") %>% 
+  mutate(source="PRIMAP CR v2.4.2*") %>% 
   mutate(var="ch4")
 
 data_primap_co2_ffi <- data_primap %>% 
@@ -291,8 +291,44 @@ data_primap_co2_ffi <- data_primap %>%
   group_by(year) %>% 
   summarise(value=sum(value,na.rm = TRUE)/1e6) %>% 
   mutate(units="GtCO2") %>% 
-  mutate(source="PRIMAP v2.4.2") %>% 
+  mutate(source="PRIMAP CR v2.4.2") %>% 
   mutate(var="co2_ffi")
+
+# PRIMAP (TP)
+
+data_primap_tp <- read.csv("sources/PRIMAP/Guetschow-et-al-2023a-PRIMAP-hist_v2.4.2_final_09-Mar-2023.csv")
+data_primap_tp <- gather(data_primap_tp,year,value,X1750:X2021)
+data_primap_tp$year <- gsub("X","",data_primap_tp$year)
+names(data_primap_tp) <- c("source","scenario","area","gas","unit","category","year","value") 
+data_primap_tp <- data_primap_tp %>% 
+  filter(scenario=="HISTTP") %>% 
+  filter(category=="M.0.EL") %>% 
+  filter(area=="EARTH")
+
+data_primap_tp_n2o <- data_primap_tp %>% 
+  filter(gas=="N2O") %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm = TRUE)/1000) %>% 
+  mutate(units="MtN2O") %>% 
+  mutate(source="PRIMAP TP v2.4.2") %>% 
+  mutate(var="n2o")
+
+data_primap_tp_ch4 <- data_primap_tp %>% 
+  filter(gas=="CH4") %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm = TRUE)/1000) %>% 
+  mutate(units="MtCH4") %>% 
+  mutate(source="PRIMAP TP v2.4.2") %>% 
+  mutate(var="ch4")
+
+data_primap_tp_co2_ffi <- data_primap_tp %>% 
+  filter(gas=="CO2") %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm = TRUE)/1e6) %>% 
+  mutate(units="GtCO2") %>% 
+  mutate(source="PRIMAP TP v2.4.2") %>% 
+  mutate(var="co2_ffi")
+
 
 
 ## F-gas emissions (from Chris Smith's compiled data)
@@ -380,6 +416,9 @@ data <- rbind(data,data_ceds_n2o)
 data <- rbind(data,data_primap_co2_ffi)
 data <- rbind(data,data_primap_ch4)
 data <- rbind(data,data_primap_n2o)
+data <- rbind(data,data_primap_tp_co2_ffi)
+data <- rbind(data,data_primap_tp_ch4)
+data <- rbind(data,data_primap_tp_n2o)
 data <- rbind(data,data_fgases)
 data <- data %>% 
   mutate(year=as.numeric(year)) %>% 
@@ -1017,9 +1056,9 @@ data_comparison <- data_comparison %>%
   mutate(difference=value-value_ar6) 
 
 # 
-data_comparison <- data_comparison %>%
-  filter(var!="co2_luc") %>%
-  filter(var!="ch4")
+# data_comparison <- data_comparison %>%
+#   filter(var!="co2_luc") %>%
+#   filter(var!="ch4")
 
 data_comparison <- data_comparison %>% 
   mutate(uncertainty_abs=value*uncertainty) %>% 
@@ -1036,6 +1075,14 @@ data_comparison <- data_ghg %>%
   filter(year<=2019) %>% 
   group_by(label) %>% 
   summarise(value=mean(value))
+
+data_comparison <- left_join(data_comparison,data_ar6 %>% 
+                               filter(year>=2010) %>% 
+                               filter(year<=2019) %>% 
+                               group_by(label) %>% 
+                               summarise(value_ar6=mean(value_ar6)),by="label")
+
+sum(data_comparison$value)-sum(data_comparison$value_ar6)
 
 data_comparison <- left_join(data_comparison,uncertainties,by="label")
 
