@@ -377,7 +377,7 @@ data_fgases <- data_fgases %>%
 
 ## GFED data
 
-data_gfed_ch4 <- read.xlsx("sources/GFED/GFED4.1s.xlsx",sheet="GFED_CH4",rows = c(4,19))
+data_gfed_ch4 <- read.xlsx("sources/GFED/GFED4.1s_2023.xlsx",sheet="GFED_CH4",rows = c(4,19))
 data_gfed_ch4 <- gather(data_gfed_ch4,year,value,`1997`:`2022`)
 data_gfed_ch4 <- data_gfed_ch4 %>% 
   mutate(var="ch4") %>% 
@@ -387,7 +387,7 @@ data_gfed_ch4 <- data_gfed_ch4 %>%
   mutate(value=value/1e6)
 
 
-data_gfed_n2o <- read.xlsx("sources/GFED/GFED4.1s.xlsx",sheet="GFED_N2O",rows = c(4,19))
+data_gfed_n2o <- read.xlsx("sources/GFED/GFED4.1s_2023.xlsx",sheet="GFED_N2O",rows = c(4,19))
 data_gfed_n2o <- gather(data_gfed_n2o,year,value,`1997`:`2022`)
 data_gfed_n2o <- data_gfed_n2o %>% 
   mutate(var="n2o") %>% 
