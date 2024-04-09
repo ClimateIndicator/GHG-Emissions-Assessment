@@ -1,0 +1,259 @@
+---
+title: "GHG-Emissions-Assessment-Tracking-Changes"
+author: "William F. Lamb"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+
+rm(list = ls())
+
+library(tidyverse)
+library(openxlsx)
+library(countrycode)
+library(ggrepel)
+library(patchwork)
+library(zoo)
+library(RColorBrewer)
+ 
+load("results/data/data_2023.RData")
+load("results/data/data_2024.RData")
+
+```
+
+# Functions
+
+```{r functions}
+
+## figure style
+
+theme_wl <- function() {
+  
+  font <- "sans"
+  
+  theme_bw() %+replace%
+    
+    theme(
+      
+      # Grid elements
+      
+      panel.grid.minor = element_blank(),    #strip minor gridlines
+      axis.ticks = element_line(color="#636363",size = 0.7),          #strip axis ticks
+      
+      
+      # Border lines
+      panel.border = element_rect(color="#636363",fill=NA,size = 0.7),
+      panel.background = element_blank(),
+      
+      # Text elements
+      
+      plot.title = element_text(             #title
+        family = font,            #set font family
+        size = 14,                #set font size
+        face = 'bold',            #bold typeface
+        hjust = 0,                #left align
+        vjust = 3,                #raise slightly
+        color = '#636363'),       #color
+      
+      plot.subtitle = element_text(
+        family = font,
+        size = 12,
+        hjust = 0,
+        vjust = 2,
+        color = '#636363'),
+      
+      plot.caption = element_text(           #caption
+        family = font,            #font family
+        size = 9,                 #font size
+        hjust = 0,                #right align
+        color = '#bdbdbd'),       #color
+      
+      axis.title = element_text(             #axis titles
+        family = font,            #font family
+        size = 10,                #font size
+        color = '#636363'),       #color
+      
+      axis.text = element_text(              #axis text
+        family = font,            #axis famuly
+        size = 9,                 #font size
+        color = '#636363'),       #color
+      
+      axis.text.x = element_text(            #margin for axis text
+        margin=margin(5, b = 10)),
+      
+      text = element_text(
+        family = font,
+        color = '#636363')
+      
+    )
+  
+}
+
+
+```
+
+
+```{r total_ghg,fig.height=5,fig.width=8}
+
+wd_diff <- data_ghg_2023 %>% 
+  select(label,year,value_2023=value)
+
+wd_diff <- left_join(wd_diff,data_ghg_2024 %>% 
+                       ungroup() %>% 
+                       select(label,year,value_2024=value))
+
+wd_diff <- gather(wd_diff,set,value,value_2023,value_2024)
+
+wd_diff %>% ggplot(.,aes(x=year,y=value,color=set)) +
+  geom_path() +
+  facet_wrap(.~label,scales="free") +
+  theme_wl()
+
+```
+
+```{r datasets,fig.height=5,fig.width=8}
+
+wd_diff <- data_2023 %>% 
+  select(var,source,year,value_2023=value) %>% 
+  mutate(source=as.character(source)) %>% 
+  mutate(source=ifelse(grepl("GCB",source),"GCB",source)) %>% 
+  mutate(source=ifelse(grepl("EDGAR",source),"EDGAR",source)) %>% 
+  mutate(source=ifelse(grepl("H&N",source),"H&N",source)) %>% 
+  mutate(source=ifelse(grepl("BLUE",source),"BLUE",source)) %>% 
+  mutate(source=ifelse(grepl("OSCAR",source),"OSCAR",source)) %>% 
+  mutate(source=ifelse(grepl("CEDS",source),"CEDS",source)) %>% 
+  mutate(source=ifelse(grepl("PRIMAP CR",source),"PRIMAP CR",source)) %>% 
+  mutate(source=ifelse(grepl("PRIMAP TP",source),"PRIMAP TP",source)) %>% 
+  mutate(source=ifelse(grepl("ODS F-gases",source),"ODS F-gases",source)) %>% 
+  mutate(source=ifelse(grepl("UNFCCC F-gases",source),"UNFCCC F-gases",source))
+
+wd_diff <- left_join(wd_diff,data_2024 %>% 
+                       select(var,source,year,value_2024=value) %>% 
+                       mutate(source=as.character(source)) %>% 
+                       mutate(source=ifelse(grepl("GCB",source),"GCB",source)) %>% 
+                       mutate(source=ifelse(grepl("EDGAR",source),"EDGAR",source)) %>% 
+                       mutate(source=ifelse(grepl("H&C",source),"H&N",source)) %>% 
+                       mutate(source=ifelse(grepl("BLUE",source),"BLUE",source)) %>% 
+                       mutate(source=ifelse(grepl("OSCAR",source),"OSCAR",source)) %>% 
+                       mutate(source=ifelse(grepl("CEDS",source),"CEDS",source)) %>% 
+                       mutate(source=ifelse(grepl("PRIMAP CR",source),"PRIMAP CR",source)) %>% 
+                       mutate(source=ifelse(grepl("PRIMAP TP",source),"PRIMAP TP",source)) %>% 
+                       mutate(source=ifelse(grepl("ODS F-gases",source),"ODS F-gases",source)) %>% 
+                       mutate(source=ifelse(grepl("UNFCCC F-gases",source),"UNFCCC F-gases",source)))
+
+wd_diff <- gather(wd_diff,set,value,value_2023,value_2024)
+
+wd_diff %>% ggplot(.,aes(x=year,y=value,color=set)) +
+  geom_path() +
+  facet_wrap(.~label,scales="free") +
+  theme_wl()
+
+```
+
+
+
+```{r fgases}
+
+## F-gas emissions (from Chris Smith's compiled data)
+
+data_fgases <- read.csv("sources/smith-hall-inversions-1750-2023.csv")
+list_fgases <- c(data_fgases$Variable[5:6],data_fgases$Variable[14:51])
+data_fgases <- gather(data_fgases,year,value,X1750:X2023)
+data_fgases$year <- gsub("X","",data_fgases$year)
+data_fgases <- data_fgases %>% 
+  mutate(gas=Variable) %>% 
+  select(var=Variable,gas,units=Unit,year,value) %>% 
+  filter(var %in% c(list_fgases))
+
+data_fgases$gas <- gsub("Emissions","",data_fgases$gas)
+data_fgases$gas <- gsub("\\|","",data_fgases$gas)
+data_fgases$gas <- gsub("-","",data_fgases$gas)
+
+#join GWPs from openclimatedata
+
+gwps <- read.csv("https://raw.githubusercontent.com/openclimatedata/globalwarmingpotentials/main/globalwarmingpotentials.csv",skip = 9)
+
+data_fgases <- left_join(data_fgases,gwps %>% select(gas=Species,AR6GWP100))
+
+data_fgases <- data_fgases %>% 
+  mutate(value=value*AR6GWP100)
+
+list_fgases <- data.frame(var=list_fgases)
+list_fgases <- list_fgases %>% 
+  mutate(group=ifelse(grepl("CFC",var),"ODS F-gases",NA)) %>% 
+  mutate(group=ifelse(grepl("HCFC",var),"ODS F-gases",group)) %>% 
+  mutate(group=ifelse(grepl("HFC",var),"UNFCCC F-gases",group)) %>% 
+  mutate(group=ifelse(grepl("Halon",var),"ODS F-gases",group)) %>% 
+  mutate(group=ifelse(grepl("NF3",var),"UNFCCC F-gases",group)) %>% 
+  mutate(group=ifelse(grepl("SF6",var),"UNFCCC F-gases",group)) %>% 
+  mutate(group=ifelse(is.na(group),"UNFCCC F-gases",group))
+
+data_fgases <- left_join(data_fgases,list_fgases,by="var")
+data_fgases_2024 <- data_fgases
+
+############
+
+
+## F-gas emissions (from Chris Smith's compiled data)
+
+data_fgases <- read.csv("sources/primap_ceds_gfed_inv_1750-2021.csv")
+list_fgases <- data_fgases$Variable[12:52]
+data_fgases <- gather(data_fgases,year,value,X1750:X2021)
+data_fgases$year <- gsub("X","",data_fgases$year)
+data_fgases <- data_fgases %>% 
+  mutate(gas=Variable) %>% 
+  select(var=Variable,gas,units=Unit,year,value) %>% 
+  filter(var %in% c(list_fgases))
+
+data_fgases$gas <- gsub("Emissions","",data_fgases$gas)
+data_fgases$gas <- gsub("\\|","",data_fgases$gas)
+data_fgases$gas <- gsub("-","",data_fgases$gas)
+
+#join GWPs from openclimatedata
+
+gwps <- read.csv("https://raw.githubusercontent.com/openclimatedata/globalwarmingpotentials/main/globalwarmingpotentials.csv",skip = 9)
+
+data_fgases <- left_join(data_fgases,gwps %>% select(gas=Species,AR6GWP100))
+
+data_fgases <- data_fgases %>% 
+  mutate(value=value*AR6GWP100)
+
+list_fgases <- data.frame(var=list_fgases)
+list_fgases <- list_fgases %>% 
+  mutate(group=ifelse(grepl("CFC",var),"ODS F-gases",NA)) %>% 
+  mutate(group=ifelse(grepl("HCFC",var),"ODS F-gases",group)) %>% 
+  mutate(group=ifelse(grepl("HFC",var),"UNFCCC F-gases",group)) %>% 
+  mutate(group=ifelse(grepl("Halon",var),"ODS F-gases",group)) %>% 
+  mutate(group=ifelse(grepl("NF3",var),"UNFCCC F-gases",group)) %>% 
+  mutate(group=ifelse(grepl("SF6",var),"UNFCCC F-gases",group)) %>% 
+  mutate(group=ifelse(is.na(group),"UNFCCC F-gases",group))
+
+data_fgases <- left_join(data_fgases,list_fgases,by="var")
+data_fgases_2023 <- data_fgases
+
+
+data_fgases <- data_fgases_2023 %>% 
+  select(group,gas,year,value_2023=value) %>% 
+  filter(year>=1990) %>% 
+  arrange(group,gas,year)
+
+data_fgases <- full_join(data_fgases,data_fgases_2024 %>% 
+                           select(group,gas,year,value_2024=value) %>% 
+                           filter(year>=1990),by = join_by(group, gas, year))
+
+
+data_fgases <- data_fgases %>% 
+  mutate(difference=value_2024-value_2023)
+
+blarg <- data_fgases %>% 
+  filter(year==2021)
+
+blarg <- data_fgases %>% 
+  group_by(year) %>% 
+  summarise_at(vars(value_2023,value_2024),sum,na.rm=T) %>% 
+  mutate(difference=value_2024-value_2023) %>% 
+  mutate(difference=difference/1e6)
+
+```

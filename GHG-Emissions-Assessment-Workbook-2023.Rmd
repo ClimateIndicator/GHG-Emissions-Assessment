@@ -436,9 +436,6 @@ data_labels <- data_labels %>%
   mutate(value=as.numeric(value)) %>% 
   mutate(source=as.factor(source))
 
-# data_labels$source <- fct_relevel(data_labels$source,"DGVM mean",after=Inf)
-# data$source <- fct_relevel(data$source,"DGVM mean",after=Inf)
-
 
 ## custom color palette for labels and lines
 
@@ -1019,6 +1016,13 @@ writeData(wb,"data_all_sources",left_join(data,data_ghg %>% select(var,label) %>
 
 
 saveWorkbook(wb,'results/ghg_emissions_co2e_2023.xlsx',overwrite=T)
+
+
+
+data_2023 <- data
+data_ghg_2023 <- data_ghg
+save(data_2023,data_ghg_2023,file="results/data/data_2023.RData")
+
 
 
 ```

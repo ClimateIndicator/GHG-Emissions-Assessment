@@ -316,7 +316,7 @@ data_primap_tp_co2_ffi <- data_primap %>%
 ## F-gas emissions (from Chris Smith's compiled data)
 
 data_fgases <- read.csv("sources/smith-hall-inversions-1750-2023.csv")
-list_fgases <- data_fgases$Variable[14:51]
+list_fgases <- c(data_fgases$Variable[5:6],data_fgases$Variable[14:51])
 data_fgases <- gather(data_fgases,year,value,X1750:X2023)
 data_fgases$year <- gsub("X","",data_fgases$year)
 data_fgases <- data_fgases %>% 
@@ -426,9 +426,6 @@ data_labels <- data_labels %>%
   mutate(value=as.numeric(value)) %>% 
   mutate(source=as.factor(source))
 
-# data_labels$source <- fct_relevel(data_labels$source,"DGVM mean",after=Inf)
-# data$source <- fct_relevel(data$source,"DGVM mean",after=Inf)
-
 
 ## custom color palette for labels and lines
 
@@ -474,7 +471,9 @@ data_ghg <- data_ghg %>%
 
 
 data_ghg <- data_ghg %>% 
-  group_by(year,var,units) %>% 
+  mutate(source=ifelse(var=="ch4","PRIMAP CR v2.5.1* + GFED v4.1*",source)) %>% 
+  mutate(source=ifelse(var=="n2o","PRIMAP CR v2.5.1* + GFED v4.1*",source)) %>% 
+  group_by(var,source,units,year) %>% 
   summarise(value=sum(value,na.rm=TRUE))
 
 ```
@@ -871,7 +870,7 @@ data_table <- data_ghg %>%
   mutate(cut=ifelse(year>=1980 & year <=1989,"1980-1989",cut)) %>% 
   mutate(cut=ifelse(year>=1990 & year <=1999,"1990-1999",cut)) %>% 
   mutate(cut=ifelse(year>=2000 & year <=2009,"2000-2009",cut)) %>% 
-  mutate(cut=ifelse(year>=2010 & year <=2019,"2010-2019",cut))
+  mutate(cut=ifelse(year>=2013 & year <=2022,"2013-2022",cut))
 
 data_table_ghgs <- data_table
 
@@ -879,6 +878,17 @@ data_table <- data_table %>%
   filter(!is.na(cut)) %>% 
   group_by(label,cut) %>% 
   summarise(value=mean(value))
+
+
+## add a 2010-2019 column
+
+data_table_2010 <- data_ghg %>% 
+  mutate(cut=ifelse(year>=2010 & year <=2019,"2010-2019",NA)) %>% 
+  filter(!is.na(cut)) %>% 
+  group_by(label,cut) %>% 
+  summarise(value=mean(value))
+
+data_table <- rbind(data_table,data_table_2010)
 
 
 ## add the 2022 data
@@ -911,11 +921,11 @@ data_table_ghgs <- rbind(data_table_ghgs,data_ghg %>%
                            filter(year==2022) %>% 
                            mutate(cut="2022"))
 
-# data_table_ghgs <- rbind(data_table_ghgs,data_table_ghgs %>% 
-#   filter(year>=2010) %>% 
-#   filter(year<=2019) %>% 
-#   mutate(cut="2010-2019")) %>% 
-#   filter(!is.na(cut))
+data_table_ghgs <- rbind(data_table_ghgs,data_table_ghgs %>%
+  filter(year>=2010) %>%
+  filter(year<=2019) %>%
+  mutate(cut="2010-2019")) %>%
+  filter(!is.na(cut))
 
 
 data_table_ghgs <- left_join(data_table_ghgs,uncertainties,by="label")
@@ -945,9 +955,14 @@ data_table <- data_table %>%
 ## add GCB 2022 projections
 data_table <- data_table %>% 
   ungroup() %>% 
-  add_row(label="CO2-FFI",cut="2023 (projection)",value="X") %>% 
-  add_row(label="CO2-LULUCF",cut="2023 (projection)",value="X")
+  add_row(label="CO2-FFI",cut="2023 (projection)",value="37±2.9") %>% 
+  add_row(label="CO2-LULUCF",cut="2023 (projection)",value="4±2.8")
   
+# round(10*(44/12),0)
+# (10*(44/12))*0.08
+# 
+# round(1.1*(44/12))
+# (1.1*(44/12))*0.7
 
 data_table$label <- as.factor(data_table$label)
 data_table$label <- fct_relevel(data_table$label,"GHG","CO2-FFI","CO2-LULUCF","CH4","N2O","F-gases")
@@ -969,7 +984,7 @@ wb <- createWorkbook()
 addWorksheet(wb,"metadata")
 addWorksheet(wb,"data_co2e")
 writeData(wb,"metadata",metadata, colNames = T, rowNames = F)
-writeData(wb,"data_co2e",spread(data_ghg %>% select(-var,-source,-units),label,value), colNames = T, rowNames = F)
+writeData(wb,"data_co2e",spread(data_ghg %>% ungroup %>% select(-var,-source,-units),label,value), colNames = T, rowNames = F)
 
 
 ### add a sheet with the data in original units
@@ -982,22 +997,54 @@ data_ghg_original <- rbind(data_ghg_original,data_gfed_ch4)
 data_ghg_original <- rbind(data_ghg_original,data_gfed_n2o)
 
 data_ghg_original <- left_join(data_ghg_original,data_ghg %>% ungroup() %>% select(var,label) %>% distinct(),by="var")
+data_ghg_original <- data_ghg_original %>% 
+  select(label,source,units,year,value)
+
 
 addWorksheet(wb,"data_original_units")
-writeData(wb,"data_original_units",spread(data_ghg_original %>% select(-var,-source,-units),label,value), colNames = T, rowNames = F)
+writeData(wb,"data_original_units",data_ghg_original, colNames = T, rowNames = F)
 
 
 ## add a sheet with all the other sources
 
-addWorksheet(wb,"data_all_sources")
-writeData(wb,"data_all_sources",left_join(data,data_ghg %>% select(var,label) %>% distinct(),by="var") %>% 
-  select(year,gas=label,source,units,value), colNames = T, rowNames = F)
+# addWorksheet(wb,"data_all_sources")
+# writeData(wb,"data_all_sources",left_join(data,data_ghg %>% select(var,label) %>% distinct(),by="var") %>% 
+#   select(year,gas=label,source,units,value), colNames = T, rowNames = F)
 
 
 saveWorkbook(wb,'results/ghg_emissions_co2e_2024.xlsx',overwrite=T)
 
+data_2024 <- data
+data_ghg_2024 <- data_ghg
+save(data_2024,data_ghg_2024,file="results/data/data_2024.RData")
+
 
 ```
+## Comparison to Smith-Hall
+
+```{r check_data_correspondence}
+
+data_smith_hall <- read.csv("sources/smith-hall-inversions-1750-2023.csv") %>% 
+  filter(Variable %in% c("Emissions|CH4","Emissions|N2O"))
+
+data_smith_hall <- gather(data_smith_hall,year,value,X1750:X2023)
+data_smith_hall$year <- gsub("X","",data_smith_hall$year)
+data_smith_hall$year <- as.numeric(data_smith_hall$year)
+data_smith_hall <- data_smith_hall %>% 
+  mutate(var=ifelse(Variable=="Emissions|CH4","ch4","n2o")) %>% 
+  select(year,var,value_smith=value)
+
+
+data_test <- data %>% 
+  filter(var %in% c("ch4","n2o")) %>% 
+  filter(source %in% c("PRIMAP TP v2.5.1","GFED v4.1*")) %>% 
+  group_by(year,var) %>% 
+  summarise(value=sum(value))
+
+data_test <- left_join(data_test,data_smith_hall)
+
+```
+
 ## Comparison to AR6
 
 ```{r comparison_ar6}
@@ -1034,6 +1081,7 @@ data_comparison <- data_comparison %>%
 # data_comparison <- data_comparison %>%
 #   filter(var!="co2_luc") %>%
 #   filter(var!="ch4")
+# sum(data_comparison$difference)
 
 data_comparison <- data_comparison %>% 
   mutate(uncertainty_abs=value*uncertainty) %>% 
