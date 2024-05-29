@@ -124,6 +124,68 @@ theme_wl <- function() {
 
 ```{r source_emissions_files}
 
+
+## F-gas emissions (from Chris Smith's inversions)
+
+data_inversions_fgases <- read.csv("sources/fgas_inversions_Smith_2024.csv")
+data_inversions_fgases <- gather(data_inversions_fgases,gas,value,-timepoints)
+data_inversions_fgases$gas <- gsub("\\.","-",data_inversions_fgases$gas)
+data_inversions_fgases <- data_inversions_fgases %>% 
+  mutate(year=timepoints-0.5)
+
+gwps_ar6 <- read.csv("https://raw.githubusercontent.com/chrisroadmap/ar6/main/data_output/7sm/metrics_supplement_cleaned.csv")
+
+list_fgases <- data_inversions_fgases %>% select(gas) %>% distinct()
+list_fgases <- left_join(list_fgases,gwps_ar6 %>% select(gas=Acronym,AR6GWP100=GWP100))
+list_fgases <- left_join(list_fgases,gwps_ar6 %>% select(gas=Formula,AR6GWP100_2=GWP100,acronym=Acronym))
+
+list_fgases <- list_fgases %>%
+  mutate(category=ifelse(grepl("NF3",gas),"NF3",NA)) %>% 
+  mutate(category=ifelse(grepl("SF6",gas),"SF6",category)) %>% 
+  mutate(category=ifelse(grepl("HFC",gas),"HFCs",category)) %>% 
+  mutate(category=ifelse(grepl("CFC",gas),"CFCs",category)) %>% 
+  mutate(category=ifelse(grepl("HCFC",gas),"HCFCs",category)) %>% 
+  mutate(category=ifelse(grepl("Halon",gas),"Halons",category)) %>% 
+  mutate(category=ifelse(grepl("PFC",acronym),"PFCs",category)) %>% 
+  mutate(category=ifelse(gas=="i-C6F14","PFCs",category)) %>% 
+  mutate(category=ifelse(gas=="c-C4F8","PFCs",category)) %>% 
+  mutate(category=ifelse(gas=="C7F16","PFCs",category)) %>% 
+  mutate(category=ifelse(gas=="C8F18","PFCs",category)) %>% 
+  mutate(category=ifelse(is.na(category),"Other",category))
+
+list_fgases <- list_fgases %>%
+  mutate(group=ifelse(grepl("NF3",category),"UNFCCC F-gases",NA)) %>% 
+  mutate(group=ifelse(grepl("SF6",category),"UNFCCC F-gases",group)) %>% 
+  mutate(group=ifelse(grepl("HFCs",category),"UNFCCC F-gases",group)) %>% 
+  mutate(group=ifelse(grepl("PFC",category),"UNFCCC F-gases",group)) %>% 
+  mutate(group=ifelse(is.na(group),"ODS F-gases",group))
+
+list_fgases <- list_fgases %>% 
+  mutate(AR6GWP100=ifelse(is.na(AR6GWP100),AR6GWP100_2,AR6GWP100)) %>% 
+  select(-AR6GWP100_2,-acronym)
+
+## manual adjustments to fill missing values based on conversation with Chris Smith
+
+list_fgases <- list_fgases %>% 
+  mutate(AR6GWP100=ifelse(gas=="c-C4F8",10200,AR6GWP100)) %>%   # from openclimatedata
+  mutate(AR6GWP100=ifelse(gas=="i-C6F14",8620,AR6GWP100)) %>%   # same as the n-form
+  mutate(AR6GWP100=ifelse(gas=="C7F16",8410,AR6GWP100)) %>%     # same as the n-form
+  mutate(AR6GWP100=ifelse(gas=="C8F18",8260,AR6GWP100))         # same as the n-form
+
+#write.xlsx(list_fgases,"list_fgases.xlsx")
+
+data_inversions_fgases <- left_join(data_inversions_fgases,list_fgases)
+data_inversions_fgases <- data_inversions_fgases %>% mutate(value=value*AR6GWP100)
+
+data_inversions_fgases <- data_inversions_fgases %>% 
+  group_by(year,group) %>% 
+  summarise(value=sum(value,na.rm=TRUE)/1e6) %>% 
+  mutate(source=ifelse(group=="ODS F-gases","CIP v2024.04\n [ODS F-gases]","CIP v2024.04*")) %>% 
+  mutate(var="fgases") %>% 
+  mutate(units="GtCO2e") %>% 
+  select(-group)
+
+
 ## Global Carbon Project CO2 FFI (https://globalcarbonbudget.org/carbonbudget2023/)
 
 data_gcb_co2_ffi <- read.xlsx("sources/GCB/Global_Carbon_Budget_2023v1.1-Alissa-Haward.xlsx",sheet=2,startRow = 22)
@@ -195,6 +257,37 @@ data_edgar_n2o <- data_edgar_n2o %>%
   mutate(units="MtN2O") %>% 
   mutate(source="EDGAR v8.0") %>% 
   mutate(var="n2o")
+
+
+# EDGAR Fgases (https://edgar.jrc.ec.europa.eu/dataset_ghg80)
+
+data_edgar_fgases <- read.xlsx("sources/EDGAR/EDGAR_F-gases_1990_2022.xlsx",sheet=2,startRow = 10)
+data_edgar_fgases <- gather(data_edgar_fgases,year,value,Y_1990:Y_2022)
+data_edgar_fgases$year <- gsub("Y_","",data_edgar_fgases$year)
+data_edgar_fgases <- data_edgar_fgases %>% 
+  select(iso=Country_code_A3,country=Name,code=ipcc_code_2006_for_standard_report,gas=Substance,fossil_bio,year,value)
+
+data_edgar_fgases <- data_edgar_fgases %>% 
+  mutate(gas=ifelse(gas=="HFC-43-10-mee","HFC-43-10mee",gas))
+
+data_edgar_fgases <- left_join(data_edgar_fgases,list_fgases %>% mutate(gas=gsub("n-","",gas)),by="gas")
+data_edgar_fgases <- left_join(data_edgar_fgases,gwps_ar6 %>% select(gas=Acronym,AR6GWP100_2=GWP100),by="gas")
+data_edgar_fgases <- data_edgar_fgases %>% 
+  mutate(AR6GWP100=ifelse(is.na(AR6GWP100),AR6GWP100_2,AR6GWP100)) %>% 
+  select(-AR6GWP100_2) %>% 
+  mutate(category=ifelse(grepl("HFC",gas),"HFCs",category)) %>% 
+  mutate(group=ifelse(grepl("HFCs",category),"UNFCCC F-gases",group))
+
+data_edgar_fgases <- data_edgar_fgases %>% 
+  mutate(value=value*AR6GWP100)
+
+data_edgar_fgases <- data_edgar_fgases %>% 
+  filter(group!="ODS F-gases") %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm=TRUE)/1e6) %>% 
+  mutate(source="EDGAR v8.0") %>% 
+  mutate(var="fgases") %>% 
+  mutate(units="GtCO2e") 
 
 
 # CEDS CH4 (https://zenodo.org/records/10904361)
@@ -331,6 +424,15 @@ data_primap_cr_co2_ffi <- data_primap %>%
   mutate(source="PRIMAP CR v2.5.1") %>% 
   mutate(var="co2_ffi")
 
+data_primap_cr_fgases <- data_primap %>% 
+  filter(scenario=="HISTCR") %>% 
+  filter(gas=="FGASES (AR6GWP100)") %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm = TRUE)/1e6) %>% 
+  mutate(units="GtCO2") %>% 
+  mutate(source="PRIMAP CR v2.5.1") %>% 
+  mutate(var="fgases")
+
 
 # PRIMAP (TP)
 
@@ -361,50 +463,59 @@ data_primap_tp_co2_ffi <- data_primap %>%
   mutate(source="PRIMAP TP v2.5.1") %>% 
   mutate(var="co2_ffi")
 
+data_primap_tp_fgases <- data_primap %>% 
+  filter(scenario=="HISTTP") %>% 
+  filter(gas=="FGASES (AR6GWP100)") %>% 
+  group_by(year) %>% 
+  summarise(value=sum(value,na.rm = TRUE)/1e6) %>% 
+  mutate(units="GtCO2") %>% 
+  mutate(source="PRIMAP TP v2.5.1") %>% 
+  mutate(var="fgases")
+
 
 ## F-gas emissions (from Chris Smith's compiled data)
-
-data_fgases <- read.csv("sources/smith-hall-inversions-1750-2023.csv")
-list_fgases <- c(data_fgases$Variable[5:6],data_fgases$Variable[14:51])
-data_fgases <- gather(data_fgases,year,value,X1750:X2023)
-data_fgases$year <- gsub("X","",data_fgases$year)
-data_fgases <- data_fgases %>% 
-  mutate(gas=Variable) %>% 
-  select(var=Variable,gas,units=Unit,year,value) %>% 
-  filter(var %in% c(list_fgases))
-
-data_fgases$gas <- gsub("Emissions","",data_fgases$gas)
-data_fgases$gas <- gsub("\\|","",data_fgases$gas)
-data_fgases$gas <- gsub("-","",data_fgases$gas)
-
-#join GWPs from openclimatedata
-
-gwps <- read.csv("https://raw.githubusercontent.com/openclimatedata/globalwarmingpotentials/main/globalwarmingpotentials.csv",skip = 9)
-
-data_fgases <- left_join(data_fgases,gwps %>% select(gas=Species,AR6GWP100))
-
-data_fgases <- data_fgases %>% 
-  mutate(value=value*AR6GWP100)
-
-list_fgases <- data.frame(var=list_fgases)
-list_fgases <- list_fgases %>% 
-  mutate(group=ifelse(grepl("CFC",var),"ODS F-gases",NA)) %>% 
-  mutate(group=ifelse(grepl("HCFC",var),"ODS F-gases",group)) %>% 
-  mutate(group=ifelse(grepl("HFC",var),"UNFCCC F-gases",group)) %>% 
-  mutate(group=ifelse(grepl("Halon",var),"ODS F-gases",group)) %>% 
-  mutate(group=ifelse(grepl("NF3",var),"UNFCCC F-gases",group)) %>% 
-  mutate(group=ifelse(grepl("SF6",var),"UNFCCC F-gases",group)) %>% 
-  mutate(group=ifelse(is.na(group),"UNFCCC F-gases",group))
-
-data_fgases <- left_join(data_fgases,list_fgases,by="var")
-
-data_fgases <- data_fgases %>% 
-  group_by(year,group) %>% 
-  summarise(value=sum(value,na.rm=TRUE)/1e6) %>% 
-  mutate(source=ifelse(group=="ODS F-gases",paste0(group,"\n CIP v2024.04"),paste0(group,"\n CIP v2024.04*"))) %>% 
-  mutate(var="fgases") %>% 
-  mutate(units="GtCO2e") %>% 
-  select(-group)
+# 
+# data_fgases <- read.csv("sources/smith-hall-inversions-1750-2023.csv")
+# list_fgases <- c(data_fgases$Variable[5:6],data_fgases$Variable[14:51])
+# data_fgases <- gather(data_fgases,year,value,X1750:X2023)
+# data_fgases$year <- gsub("X","",data_fgases$year)
+# data_fgases <- data_fgases %>%
+#   mutate(gas=Variable) %>%
+#   select(var=Variable,gas,units=Unit,year,value) %>%
+#   filter(var %in% c(list_fgases))
+# 
+# data_fgases$gas <- gsub("Emissions","",data_fgases$gas)
+# data_fgases$gas <- gsub("\\|","",data_fgases$gas)
+# data_fgases$gas <- gsub("-","",data_fgases$gas)
+# 
+# #join GWPs from openclimatedata
+# 
+ gwps <- read.csv("https://raw.githubusercontent.com/openclimatedata/globalwarmingpotentials/main/globalwarmingpotentials.csv",skip = 9)
+# 
+# data_fgases <- left_join(data_fgases,gwps %>% select(gas=Species,AR6GWP100))
+# 
+# data_fgases <- data_fgases %>%
+#   mutate(value=value*AR6GWP100)
+# 
+# list_fgases <- data.frame(var=list_fgases)
+# list_fgases <- list_fgases %>%
+#   mutate(group=ifelse(grepl("CFC",var),"ODS F-gases",NA)) %>%
+#   mutate(group=ifelse(grepl("HCFC",var),"ODS F-gases",group)) %>%
+#   mutate(group=ifelse(grepl("HFC",var),"UNFCCC F-gases",group)) %>%
+#   mutate(group=ifelse(grepl("Halon",var),"ODS F-gases",group)) %>%
+#   mutate(group=ifelse(grepl("NF3",var),"UNFCCC F-gases",group)) %>%
+#   mutate(group=ifelse(grepl("SF6",var),"UNFCCC F-gases",group)) %>%
+#   mutate(group=ifelse(is.na(group),"UNFCCC F-gases",group))
+# 
+# data_fgases <- left_join(data_fgases,list_fgases,by="var")
+# 
+# data_fgases <- data_fgases %>%
+#   group_by(year,group) %>%
+#   summarise(value=sum(value,na.rm=TRUE)/1e6) %>%
+#   mutate(source=ifelse(group=="ODS F-gases",paste0(group,"\n CIP v2024.04"),paste0(group,"\n CIP v2024.04*"))) %>%
+#   mutate(var="fgases") %>%
+#   mutate(units="GtCO2e") %>%
+#   select(-group)
 
 
 ## GFED CH4 data (https://www.geo.vu.nl/~gwerf/GFED/GFED4/tables/GFED4.1s_CH4.txt)
@@ -474,16 +585,19 @@ data <- rbind(data_gcb_co2_ffi,data_edgar_co2_ffi)
 data <- rbind(data,data_gcb_co2_luc)
 data <- rbind(data,data_edgar_ch4)
 data <- rbind(data,data_edgar_n2o)
+data <- rbind(data,data_edgar_fgases)
 data <- rbind(data,data_ceds_co2_ffi)
 data <- rbind(data,data_ceds_ch4)
 data <- rbind(data,data_ceds_n2o)
 data <- rbind(data,data_primap_cr_co2_ffi)
 data <- rbind(data,data_primap_cr_ch4)
 data <- rbind(data,data_primap_cr_n2o)
+data <- rbind(data,data_primap_cr_fgases)
 data <- rbind(data,data_primap_tp_co2_ffi)
 data <- rbind(data,data_primap_tp_ch4)
 data <- rbind(data,data_primap_tp_n2o)
-data <- rbind(data,data_fgases)
+data <- rbind(data,data_primap_tp_fgases)
+data <- rbind(data,data_inversions_fgases)
 data <- rbind(data,data_gfed_ch4)
 data <- rbind(data,data_gfed_n2o)
 data <- data %>% 
@@ -518,7 +632,7 @@ colors = colorRampPalette(brewer.pal(8, "Set2"))(length(unique(data_labels$sourc
 data_ghg <- rbind(data_gcb_co2_ffi,data_gcb_co2_luc)
 data_ghg <- rbind(data_ghg,data_gfed_ch4)
 data_ghg <- rbind(data_ghg,data_gfed_n2o)
-data_ghg <- rbind(data_ghg,data_fgases)
+data_ghg <- rbind(data_ghg,data_inversions_fgases)
 data_ghg <- rbind(data_ghg,data_primap_cr_ch4)
 data_ghg <- rbind(data_ghg,data_primap_cr_n2o)
 
@@ -1070,7 +1184,7 @@ writeData(wb,"data_co2e",spread(data_ghg %>% ungroup %>% select(-var,-source,-un
 data_ghg_original <- rbind(data_gcb_co2_ffi,data_gcb_co2_luc %>% filter(source=="GCB v2022*"))
 data_ghg_original <- rbind(data_ghg_original,data_primap_cr_ch4)
 data_ghg_original <- rbind(data_ghg_original,data_primap_cr_n2o)
-data_ghg_original <- rbind(data_ghg_original,data_fgases %>% filter(grepl("UNFCCC",source)))
+data_ghg_original <- rbind(data_ghg_original,data_inversions_fgases %>% filter(grepl("UNFCCC",source)))
 data_ghg_original <- rbind(data_ghg_original,data_gfed_ch4)
 data_ghg_original <- rbind(data_ghg_original,data_gfed_n2o)
 
@@ -1155,11 +1269,11 @@ data_comparison <- left_join(data_comparison,uncertainties,by="label")
 data_comparison <- data_comparison %>% 
   mutate(difference=value-value_ar6) 
 
-# 
-# data_comparison <- data_comparison %>%
-#   filter(var!="co2_luc") %>%
-#   filter(var!="ch4")
-# sum(data_comparison$difference)
+
+data_comparison <- data_comparison %>%
+  filter(var!="co2_luc") %>%
+  filter(var!="ch4")
+sum(data_comparison$difference)
 
 data_comparison <- data_comparison %>% 
   mutate(uncertainty_abs=value*uncertainty) %>% 
