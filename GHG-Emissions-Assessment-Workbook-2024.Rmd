@@ -189,8 +189,9 @@ data_inversions_fgases <- data_inversions_fgases %>%
 ## Global Carbon Project CO2 FFI (https://globalcarbonbudget.org/carbonbudget2023/)
 
 data_gcb_co2_ffi <- read.xlsx("sources/GCB/Global_Carbon_Budget_2023v1.1-Alissa-Haward.xlsx",sheet=2,startRow = 22)
-data_gcb_co2_ffi <- data_gcb_co2_ffi %>% 
-  select(year=Year,value=fossil.emissions.excluding.carbonation)
+data_gcb_co2_ffi <- data_gcb_co2_ffi %>%
+  mutate(value=fossil.emissions.excluding.carbonation-cement.carbonation.sink) %>% 
+  select(year=Year,value)
 data_gcb_co2_ffi <- data_gcb_co2_ffi %>% 
   mutate(source="GCB v2023*") %>% 
   mutate(value=value*(44/12)) %>% 
@@ -1098,7 +1099,7 @@ uncertainties = data.frame(label=c("CO2-FFI","CO2-LULUCF","CH4","N2O","F-gases")
 data_table <- left_join(data_table,uncertainties,by="label")
 data_table <- data_table %>% 
   mutate(uncertainty_abs=value*uncertainty) %>% 
-  mutate(value=signif(value,2)) %>% 
+  mutate(value=ifelse(label=="CO2-FFI",signif(value,3),signif(value,2))) %>% 
   mutate(uncertainty_abs=signif(uncertainty_abs,2))
 
 data_table <- data_table %>% 
