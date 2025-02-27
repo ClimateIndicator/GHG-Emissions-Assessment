@@ -294,7 +294,7 @@ data_edgar_fgases <- data_edgar_fgases %>%
 # CEDS CH4 (https://zenodo.org/records/10904361)
 
 
-data_ceds_ch4 <- read.csv("sources/CEDS v2024.04.01/CH4_CEDS_emissions_by_country_v2024_04_01.csv")
+data_ceds_ch4 <- read.csv("sources/CEDS/CH4_CEDS_emissions_by_country_v2024_04_01.csv")
 data_ceds_ch4 <- gather(data_ceds_ch4,year,value,X1970:X2022)
 data_ceds_ch4$year <- gsub("X","",data_ceds_ch4$year)
 data_ceds_ch4 <- data_ceds_ch4 %>% 
@@ -308,25 +308,9 @@ data_ceds_ch4 <- data_ceds_ch4 %>%
   mutate(var="ch4")
 
 
-# # CEDS CH4 (https://zenodo.org/record/4741285)
-# 
-# data_ceds_ch4 <- read.csv("sources/CEDS v2021.4.21/CH4_CEDS_emissions_by_country_2021_04_21.csv")
-# data_ceds_ch4 <- gather(data_ceds_ch4,year,value,X1970:X2019)
-# data_ceds_ch4$year <- gsub("X","",data_ceds_ch4$year)
-# data_ceds_ch4 <- data_ceds_ch4 %>% 
-#   select(iso=country,gas=em,year,value)
-# 
-# data_ceds_ch4 <- data_ceds_ch4 %>% 
-#   group_by(year) %>% 
-#   summarise(value=sum(value,na.rm=TRUE)/1000) %>% 
-#   mutate(units="MtCH4") %>% 
-#   mutate(source="CEDS v2021.4.21") %>% 
-#   mutate(var="ch4")
-
-
 # CEDS CO2 (https://zenodo.org/records/10904361)
 
-data_ceds_co2_ffi <- read.csv("sources/CEDS v2024.04.01/CO2_CEDS_emissions_by_country_v2024_04_01.csv")
+data_ceds_co2_ffi <- read.csv("sources/CEDS/CO2_CEDS_emissions_by_country_v2024_04_01.csv")
 data_ceds_co2_ffi <- gather(data_ceds_co2_ffi,year,value,X1750:X2022)
 data_ceds_co2_ffi$year <- gsub("X","",data_ceds_co2_ffi$year)
 data_ceds_co2_ffi <- data_ceds_co2_ffi %>% 
@@ -340,25 +324,9 @@ data_ceds_co2_ffi <- data_ceds_co2_ffi %>%
   mutate(var="co2_ffi")
 
 
-# # CEDS CO2 (https://zenodo.org/record/4741285)
-# 
-# data_ceds_co2_ffi <- read.csv("sources/CEDS v2021.4.21/CO2_CEDS_emissions_by_country_2021_04_21.csv")
-# data_ceds_co2_ffi <- gather(data_ceds_co2_ffi,year,value,X1750:X2019)
-# data_ceds_co2_ffi$year <- gsub("X","",data_ceds_co2_ffi$year)
-# data_ceds_co2_ffi <- data_ceds_co2_ffi %>% 
-#   select(iso=country,gas=em,year,value)
-# 
-# data_ceds_co2_ffi <- data_ceds_co2_ffi %>% 
-#   group_by(year) %>% 
-#   summarise(value=sum(value,na.rm=TRUE)/1e6) %>% 
-#   mutate(units="GtCO2") %>% 
-#   mutate(source="CEDS v2021.4.21") %>% 
-#   mutate(var="co2_ffi")
-
-
 # CEDS N2O (https://zenodo.org/records/10904361)
 
-data_ceds_n2o <- read.csv("sources/CEDS v2024.04.01/N2O_CEDS_emissions_by_country_v2024_04_01.csv")
+data_ceds_n2o <- read.csv("sources/CEDS/N2O_CEDS_emissions_by_country_v2024_04_01.csv")
 data_ceds_n2o <- gather(data_ceds_n2o,year,value,X1970:X2022)
 data_ceds_n2o$year <- gsub("X","",data_ceds_n2o$year)
 data_ceds_n2o <- data_ceds_n2o %>%
@@ -370,22 +338,6 @@ data_ceds_n2o <- data_ceds_n2o %>%
   mutate(units="MtN2O") %>%
   mutate(source="CEDS v2024.4.1") %>%
   mutate(var="n2o")
-
-
-# # CEDS N2O (https://zenodo.org/record/4741285)
-# 
-# data_ceds_n2o <- read.csv("sources/CEDS v2021.4.21/N2O_CEDS_emissions_by_country_2021_04_21.csv")
-# data_ceds_n2o <- gather(data_ceds_n2o,year,value,X1970:X2019)
-# data_ceds_n2o$year <- gsub("X","",data_ceds_n2o$year)
-# data_ceds_n2o <- data_ceds_n2o %>% 
-#   select(iso=country,gas=em,year,value)
-# 
-# data_ceds_n2o <- data_ceds_n2o %>% 
-#   group_by(year) %>% 
-#   summarise(value=sum(value,na.rm=TRUE)/1000) %>% 
-#   mutate(units="MtN2O") %>% 
-#   mutate(source="CEDS v2021.4.21") %>% 
-#   mutate(var="n2o")
 
 
 # PRIMAP (https://zenodo.org/records/10705513)
@@ -474,49 +426,7 @@ data_primap_tp_fgases <- data_primap %>%
   mutate(var="fgases")
 
 
-## F-gas emissions (from Chris Smith's compiled data)
-# 
-# data_fgases <- read.csv("sources/smith-hall-inversions-1750-2023.csv")
-# list_fgases <- c(data_fgases$Variable[5:6],data_fgases$Variable[14:51])
-# data_fgases <- gather(data_fgases,year,value,X1750:X2023)
-# data_fgases$year <- gsub("X","",data_fgases$year)
-# data_fgases <- data_fgases %>%
-#   mutate(gas=Variable) %>%
-#   select(var=Variable,gas,units=Unit,year,value) %>%
-#   filter(var %in% c(list_fgases))
-# 
-# data_fgases$gas <- gsub("Emissions","",data_fgases$gas)
-# data_fgases$gas <- gsub("\\|","",data_fgases$gas)
-# data_fgases$gas <- gsub("-","",data_fgases$gas)
-# 
-# #join GWPs from openclimatedata
-# 
- gwps <- read.csv("https://raw.githubusercontent.com/openclimatedata/globalwarmingpotentials/main/globalwarmingpotentials.csv",skip = 9)
-# 
-# data_fgases <- left_join(data_fgases,gwps %>% select(gas=Species,AR6GWP100))
-# 
-# data_fgases <- data_fgases %>%
-#   mutate(value=value*AR6GWP100)
-# 
-# list_fgases <- data.frame(var=list_fgases)
-# list_fgases <- list_fgases %>%
-#   mutate(group=ifelse(grepl("CFC",var),"ODS F-gases",NA)) %>%
-#   mutate(group=ifelse(grepl("HCFC",var),"ODS F-gases",group)) %>%
-#   mutate(group=ifelse(grepl("HFC",var),"UNFCCC F-gases",group)) %>%
-#   mutate(group=ifelse(grepl("Halon",var),"ODS F-gases",group)) %>%
-#   mutate(group=ifelse(grepl("NF3",var),"UNFCCC F-gases",group)) %>%
-#   mutate(group=ifelse(grepl("SF6",var),"UNFCCC F-gases",group)) %>%
-#   mutate(group=ifelse(is.na(group),"UNFCCC F-gases",group))
-# 
-# data_fgases <- left_join(data_fgases,list_fgases,by="var")
-# 
-# data_fgases <- data_fgases %>%
-#   group_by(year,group) %>%
-#   summarise(value=sum(value,na.rm=TRUE)/1e6) %>%
-#   mutate(source=ifelse(group=="ODS F-gases",paste0(group,"\n CIP v2024.04"),paste0(group,"\n CIP v2024.04*"))) %>%
-#   mutate(var="fgases") %>%
-#   mutate(units="GtCO2e") %>%
-#   select(-group)
+gwps <- read.csv("https://raw.githubusercontent.com/openclimatedata/globalwarmingpotentials/main/globalwarmingpotentials.csv",skip = 9)
 
 
 ## GFED CH4 data (https://www.geo.vu.nl/~gwerf/GFED/GFED4/tables/GFED4.1s_CH4.txt)
@@ -1271,9 +1181,10 @@ data_comparison <- data_comparison %>%
   mutate(difference=value-value_ar6) 
 
 
-data_comparison <- data_comparison %>%
-  filter(var!="co2_luc") %>%
-  filter(var!="ch4")
+# data_comparison <- data_comparison %>%
+#   filter(var!="co2_luc") %>%
+#   filter(var!="ch4")
+
 sum(data_comparison$difference)
 
 data_comparison <- data_comparison %>% 
@@ -1329,7 +1240,7 @@ data_deng_ch4 <- data_deng_ch4  %>%
 
 #### national CH4 data from sources in this assessment
 
-data_ceds_ch4 <- read.csv("sources/CEDS v2024.04.01/CH4_CEDS_emissions_by_country_v2024_04_01.csv")
+data_ceds_ch4 <- read.csv("sources/CEDS/CH4_CEDS_emissions_by_country_v2024_04_01.csv")
 data_ceds_ch4 <- gather(data_ceds_ch4,year,value,X1970:X2022)
 data_ceds_ch4$year <- gsub("X","",data_ceds_ch4$year)
 data_ceds_ch4 <- data_ceds_ch4 %>%

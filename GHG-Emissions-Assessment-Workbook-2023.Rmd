@@ -212,7 +212,7 @@ data_edgar_n2o <- data_edgar_n2o %>%
 
 # CEDS CH4 (https://zenodo.org/record/4741285)
 
-data_ceds_ch4 <- read.csv("sources/CEDS v2021.4.21/CH4_CEDS_emissions_by_country_2021_04_21.csv")
+data_ceds_ch4 <- read.csv("sources/CEDS/CH4_CEDS_emissions_by_country_2021_04_21.csv")
 data_ceds_ch4 <- gather(data_ceds_ch4,year,value,X1970:X2019)
 data_ceds_ch4$year <- gsub("X","",data_ceds_ch4$year)
 data_ceds_ch4 <- data_ceds_ch4 %>% 
@@ -228,7 +228,7 @@ data_ceds_ch4 <- data_ceds_ch4 %>%
 
 # CEDS CO2 (https://zenodo.org/record/4741285)
 
-data_ceds_co2_ffi <- read.csv("sources/CEDS v2021.4.21/CO2_CEDS_emissions_by_country_2021_04_21.csv")
+data_ceds_co2_ffi <- read.csv("sources/CEDS/CO2_CEDS_emissions_by_country_2021_04_21.csv")
 data_ceds_co2_ffi <- gather(data_ceds_co2_ffi,year,value,X1750:X2019)
 data_ceds_co2_ffi$year <- gsub("X","",data_ceds_co2_ffi$year)
 data_ceds_co2_ffi <- data_ceds_co2_ffi %>% 
@@ -244,7 +244,7 @@ data_ceds_co2_ffi <- data_ceds_co2_ffi %>%
 
 # CEDS N2O (https://zenodo.org/record/4741285)
 
-data_ceds_n2o <- read.csv("sources/CEDS v2021.4.21/N2O_CEDS_emissions_by_country_2021_04_21.csv")
+data_ceds_n2o <- read.csv("sources/CEDS/N2O_CEDS_emissions_by_country_2021_04_21.csv")
 data_ceds_n2o <- gather(data_ceds_n2o,year,value,X1970:X2019)
 data_ceds_n2o$year <- gsub("X","",data_ceds_n2o$year)
 data_ceds_n2o <- data_ceds_n2o %>% 
@@ -347,7 +347,7 @@ data_fgases$gas <- gsub("-","",data_fgases$gas)
 
 #join GWPs from openclimatedata
 
-gwps <- read.csv("https://raw.githubusercontent.com/openclimatedata/globalwarmingpotentials/main/globalwarmingpotentials.csv",skip = 9)
+gwps <- read.csv("https://raw.githubusercontent.com/openclimatedata/globalwarmingpotentials/main/globalwarmingpotentials.csv",skip = 10)
 
 data_fgases <- left_join(data_fgases,gwps %>% select(gas=Species,AR6GWP100))
 
