@@ -843,9 +843,18 @@ p_fgases
 
 ## Combines plot of all sources
 
-```{r plot_emissions_2025,fig.height=9,fig.width=10,fig.path="results/",dev=c('png','pdf','svg')}
+```{r plot_emissions_2025,fig.height=9,fig.width=10}
 
-wrap_elements(p_ghg) + wrap_elements(p_co2) + wrap_elements(p_co2_luc) + wrap_elements(p_ch4) + wrap_elements(p_n2o) + wrap_elements(p_fgases) + plot_layout(ncol=2)
+plot <- wrap_elements(p_ghg) + wrap_elements(p_co2) + wrap_elements(p_co2_luc) + wrap_elements(p_ch4) + wrap_elements(p_n2o) + wrap_elements(p_fgases) + plot_layout(ncol=2)
+plot
+
+
+
+ggsave(plot,filename = "plot_emissions_2025.png",path = "results/",device = "png",height = 9,width=10,dpi=300)
+ggsave(plot,filename = "plot_emissions_2025.pdf",path = "results/",device = cairo_pdf,height = 9,width=10)
+ggsave(plot,filename = "plot_emissions_2025.svg",path = "results/",device = 'svg',height = 9,width=10)
+
+
 
 ```
 
