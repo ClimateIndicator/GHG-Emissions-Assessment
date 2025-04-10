@@ -536,7 +536,7 @@ ggsave(plot,filename = "ghg_differences_ghg_luc_2025.svg",path = "results/",devi
 ## Get PRIMAP Hist-CR + Grassi NGHGI data
 
 data_inventories <- data %>% 
-  filter(grepl("PRIMAP Hist-CR",source)) %>% 
+  filter(grepl("PRIMAP CR",source)) %>% 
   filter(sector_lv1 %in% c(1,2,3,5,6)) %>% 
   group_by(source,var,year) %>% 
   summarise(value=sum(value,na.rm=TRUE)) %>% 
@@ -563,7 +563,7 @@ data_models <- data_sectors %>%
 
 data_models <- data_models %>% 
   bind_rows(.,data %>% 
-              filter(grepl("PRIMAP Hist-TP",source)) %>% 
+              filter(grepl("PRIMAP TP",source)) %>% 
               filter(sector_lv1 %in% c(1,2,3,5,6)) %>% 
               filter(var!="CO2") %>% 
               group_by(source,var,year) %>% 
@@ -588,7 +588,7 @@ data_climate <- data_sectors %>%
 
 data_climate <- data_climate %>% 
   bind_rows(.,data %>% 
-              filter(grepl("PRIMAP Hist-TP",source)) %>% 
+              filter(grepl("PRIMAP TP",source)) %>% 
               filter(sector_lv1 %in% c(1,2,3,5,6)) %>% 
               filter(var!="CO2") %>% 
               group_by(source,var,year) %>% 
@@ -619,7 +619,7 @@ data_climate <- data_climate %>%
 
 
 data_plot <- rbind(data_inventories,data_models,data_climate)
-
+data_plot_years <- data_plot
 
 
 ## Save data
@@ -700,6 +700,7 @@ ggsave(plot,filename = "ghg_differences_ghg_conventions_2025.svg",path = "result
 
 
 ```
+
 
 ``` {r save}
 
