@@ -1191,6 +1191,115 @@ ggsave(plot,filename = "plot_emissions_differences_2025.svg",path = "results/",d
 
 
 
+## Fossil share of emissions
+
+```{r fossil_share}
+
+
+
+# CEDS CH4 (https://zenodo.org/records/12803197)
+
+
+data_ceds_fuels_ch4 <- read.csv("sources/CEDS/CH4_CEDS_global_emissions_by_fuel_v_2025_03_11.csv")
+data_ceds_fuels_ch4 <- gather(data_ceds_fuels_ch4,year,value,X1970:X2023)
+data_ceds_fuels_ch4$year <- gsub("X","",data_ceds_fuels_ch4$year)
+data_ceds_fuels_ch4 <- data_ceds_fuels_ch4 %>% 
+  select(fuel,gas=em,year,value)
+
+data_ceds_fuels_ch4 <- data_ceds_fuels_ch4 %>% 
+  group_by(year,fuel) %>% 
+  summarise(value=sum(value,na.rm=TRUE)/1000) %>% 
+  mutate(units="MtCH4") %>% 
+  mutate(source="CEDS v2025.3.11") %>% 
+  mutate(var="ch4")
+
+
+# CEDS CO2 (https://zenodo.org/records/12803197)
+
+data_ceds_fuels_co2_ffi <- read.csv("sources/CEDS/CO2_CEDS_global_emissions_by_fuel_v_2025_03_11.csv")
+data_ceds_fuels_co2_ffi <- gather(data_ceds_fuels_co2_ffi,year,value,X1750:X2023)
+data_ceds_fuels_co2_ffi$year <- gsub("X","",data_ceds_fuels_co2_ffi$year)
+data_ceds_fuels_co2_ffi <- data_ceds_fuels_co2_ffi %>% 
+  select(fuel,gas=em,year,value)
+
+data_ceds_fuels_co2_ffi <- data_ceds_fuels_co2_ffi %>% 
+  group_by(year,fuel) %>% 
+  summarise(value=sum(value,na.rm=TRUE)/1e6) %>% 
+  mutate(units="GtCO2") %>% 
+  mutate(source="CEDS v2025.3.11") %>% 
+  mutate(var="co2_ffi")
+
+
+# CEDS N2O (https://zenodo.org/records/12803197)
+
+data_ceds_fuels_n2o <- read.csv("sources/CEDS/N2O_CEDS_global_emissions_by_fuel_v_2025_03_11.csv")
+data_ceds_fuels_n2o <- gather(data_ceds_fuels_n2o,year,value,X1970:X2023)
+data_ceds_fuels_n2o$year <- gsub("X","",data_ceds_fuels_n2o$year)
+data_ceds_fuels_n2o <- data_ceds_fuels_n2o %>%
+  select(fuel,gas=em,year,value)
+
+data_ceds_fuels_n2o <- data_ceds_fuels_n2o %>%
+  group_by(year,fuel) %>%
+  summarise(value=sum(value,na.rm=TRUE)/1000) %>%
+  mutate(units="MtN2O") %>%
+  mutate(source="CEDS v2025.3.11") %>%
+  mutate(var="n2o")
+
+data_ceds_fuels <- rbind(data_ceds_fuels_co2_ffi,data_ceds_fuels_ch4,data_ceds_fuels_n2o)
+
+data_ceds_fuels <- data_ceds_fuels %>% 
+  mutate(fuel_category=NA) %>% 
+  mutate(fuel_category=ifelse(grepl("coal",fuel),"coal",fuel_category)) %>% 
+  mutate(fuel_category=ifelse(grepl("oil",fuel),"oil",fuel_category)) %>% 
+  mutate(fuel_category=ifelse(grepl("gas",fuel),"gas",fuel_category)) %>% 
+  mutate(fuel_category=ifelse(grepl("process",fuel),"non-fossil",fuel_category)) %>% 
+  mutate(fuel_category=ifelse(grepl("biomass",fuel),"non-fossil",fuel_category))
+
+data_ceds_fuels <- data_ceds_fuels %>% 
+  group_by(year,fuel_category,var) %>% 
+  summarise(value=sum(value,na.rm=TRUE))
+
+
+data_fuels <- data_ceds_fuels %>% 
+  rbind(.,data_edgar_fgases %>% 
+          group_by(year,var) %>% 
+          summarise(value=sum(value)) %>% 
+          mutate(fuel_category="non-fossil"))
+
+data_fuels <- data_ceds_fuels %>% 
+  rbind(.,data_gcb_co2_luc %>% filter(source=="GCB v2024*") %>%  mutate(fuel_category="non-fossil") %>% select(-source,-units))
+
+
+gwps <- read.csv("https://raw.githubusercontent.com/openclimatedata/globalwarmingpotentials/main/globalwarmingpotentials.csv",skip = 10)
+
+data_fuels <- data_fuels %>% 
+  filter(year>=1970) %>% 
+  mutate(gwp=ifelse(var=="ch4",gwps$AR6GWP100[gwps$Species=="CH4"],1)) %>% 
+  mutate(gwp=ifelse(var=="n2o",gwps$AR6GWP100[gwps$Species=="N2O"],gwp)) %>% 
+  mutate(value_gwp=value*gwp) %>% 
+  mutate(value_gwp=ifelse(var %in% c("ch4","n2o"),value_gwp/1000,value_gwp))
+
+data_fuels <- data_fuels %>% 
+  mutate(value=value_gwp) %>% 
+  select(-value_gwp)
+
+
+data_fuels <- data_fuels %>% 
+  mutate(year=as.numeric(year)) %>% 
+  mutate(fuel_category=as.factor(fuel_category))
+data_fuels$fuel_category <- fct_relevel(data_fuels$fuel_category,"coal","gas","oil","non-fossil")
+
+data_fuels %>% filter(year>=1990) %>% 
+  ggplot(.,aes(x=year,y=value,fill=fuel_category)) +
+  geom_col() +
+  theme_wl_bar_trend() + 
+  scale_fill_manual(values=colours_9_qual)
+
+
+```
+
+
+
 
 ## Comparison to Smith-Hall
 
