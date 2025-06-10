@@ -62,7 +62,7 @@ source("https://raw.githubusercontent.com/lambwf/Codebase/main/figure_style.R")
 
 ## F-gas emissions (from Chris Smith's inversions: https://raw.githubusercontent.com/ClimateIndicator/forcing-timeseries/refs/heads/main/output/ghg_equivalent_emissions.csv)
 
-data_inversions_fgases <- read.csv("sources/inversions/fgas_inversions_Smith_2025.csv")
+data_inversions_fgases <- read.csv("sources/inversions/fgas_inversions_Smith_2025_2.csv")
 data_inversions_fgases <- gather(data_inversions_fgases,gas,value,-timepoints)
 data_inversions_fgases$gas <- gsub("\\.","-",data_inversions_fgases$gas)
 data_inversions_fgases <- data_inversions_fgases %>% 
