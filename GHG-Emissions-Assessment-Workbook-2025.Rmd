@@ -1298,7 +1298,22 @@ data_fuels %>% filter(year>=1990) %>%
 
 ```
 
+## Recent change
 
+```{r change}
+
+
+source("https://raw.githubusercontent.com/lambwf/Codebase/main/growth_rate.R")
+
+data_change <- data_ghg %>% 
+  filter(year>=max(data_ghg$year)-2) %>% 
+  group_by(var) %>% 
+  mutate(change=growth_rate(year,value)$rate) %>% 
+  mutate(change=change*100) %>% 
+  mutate(change=round(change,1))
+
+
+```
 
 
 ## Comparison to Smith-Hall
@@ -1323,6 +1338,7 @@ data_fuels %>% filter(year>=1990) %>%
 #   summarise(value=sum(value))
 # 
 # data_test <- left_join(data_test,data_smith_hall)
+
 
 ```
 
