@@ -115,7 +115,7 @@ data_inversions_fgases <- data_inversions_fgases %>% mutate(value=value*AR6GWP10
 data_inversions_fgases <- data_inversions_fgases %>% 
   group_by(year,group) %>% 
   summarise(value=sum(value,na.rm=TRUE)/1e6) %>% 
-  mutate(source=ifelse(group=="ODS F-gases","CIP v2026\n [ODS F-gases]","CIP v2026*")) %>% 
+  mutate(source=ifelse(group=="ODS F-gases","CIP v2026\n [ODS F-gases]","CIP v2026")) %>% 
   mutate(var="fgases") %>% 
   mutate(units="GtCO2e") %>% 
   select(-group) %>% 
@@ -130,7 +130,7 @@ data_gcb_co2_ffi <- data_gcb_co2_ffi %>%
   mutate(value=fossil.emissions.excluding.carbonation) %>% 
   select(year=Year,value)
 data_gcb_co2_ffi <- data_gcb_co2_ffi %>% 
-  mutate(source="GCB v2025*") %>% 
+  mutate(source="GCB v2025") %>% 
   mutate(value=value*3.664) %>% 
   mutate(var="co2_ffi") %>% 
   mutate(units="GtCO2") %>% 
@@ -158,7 +158,7 @@ data_gcb_co2_carb <- data_gcb_co2_carb %>%
 #data_gcb_co2_luc <- read.xlsx("sources/GCB/Global_Carbon_Budget_2024_v1.0-1.xlsx",sheet=5,startRow = 39,cols = c(1,2,9,14,19,24))
 data_gcb_co2_luc <- read.xlsx("sources/GCB/Global_Carbon_Budget_2025_v0.7.xlsx",sheet=5,startRow = 40,cols = c(1,2,9,14,19))
 
-names(data_gcb_co2_luc) <- c("year","GCB v2025*","BLUE","OSCAR","LUCE")
+names(data_gcb_co2_luc) <- c("year","GCB v2025","BLUE","OSCAR","LUCE")
 data_gcb_co2_luc <- gather(data_gcb_co2_luc,source,value,-year)
 data_gcb_co2_luc <- data_gcb_co2_luc %>% 
   mutate(value=value*3.664) %>% 
@@ -360,7 +360,7 @@ data_primap_tp_n2o <- data_primap %>%
   group_by(year,sector) %>% 
   summarise(value=sum(value,na.rm = TRUE)/1000) %>% 
   mutate(units="MtN2O") %>% 
-  mutate(source="PRIMAP TP v2.7*") %>% 
+  mutate(source="PRIMAP TP v2.7") %>% 
   mutate(var="n2o")
 
 data_primap_tp_ch4 <- data_primap %>% 
@@ -369,7 +369,7 @@ data_primap_tp_ch4 <- data_primap %>%
   group_by(year,sector) %>% 
   summarise(value=sum(value,na.rm = TRUE)/1000) %>% 
   mutate(units="MtCH4") %>% 
-  mutate(source="PRIMAP TP v2.7*") %>% 
+  mutate(source="PRIMAP TP v2.7") %>% 
   mutate(var="ch4")
 
 data_primap_tp_co2_ffi <- data_primap %>% 
@@ -519,12 +519,21 @@ data <- bind_rows(data_gcb_co2_ffi,
                   data_nghgi_co2_luc,
                   data_fao)
 
+
+## choose datasets for total GHG emissions
+
+data <- data %>% 
+  ungroup() %>% 
+  mutate(source=ifelse(source=="GCB v2025",paste0(source,"*"),source)) %>% 
+  mutate(source=ifelse(source=="EDGAR v2025" & var!="co2_ffi",paste0(source,"*"),source))
+
+
+## save data with sectors then simplify
+
 data <- data %>% 
   mutate(year=as.numeric(year)) %>% 
   mutate(source=as.factor(source))
 
-
-## save data with sectors then simplify
 data_sectors <- data
 save(data_sectors,file="results/data/data_sectors_2026.RData")
 
@@ -1035,13 +1044,29 @@ data_table <- data_table %>%
   select(-uncertainty,-uncertainty_abs)
 
 ## add GCB projections
-data_table <- data_table %>% 
-  ungroup() %>% 
-  add_row(label="CO2-FFI",cut="2025 (projection)",value="38.1±3") %>% 
-  add_row(label="CO2-LULUCF",cut="2025 (projection)",value="4.1±2.9")
+data_projection <- data.frame(
+  label=c("CO2-FFI","CO2-LULUCF"),
+  cut="2025 (projection)",
+  value=c(38.1,4.1))
 
-#round(38.1*0.08,1)
-#round(4.1*0.7,1)
+## subtract the cement carbonation sink from the projection (get this from Robbie)
+cement_carbonation_projection <- read.csv("sources/not public/GCB2025v15_carbonation_data.csv") %>% 
+  mutate(Average=Average*3.664) %>% 
+  mutate(Average=Average/1000) %>% 
+  filter(Year==2025)
+
+data_projection <- data_projection %>% 
+  mutate(value=ifelse(label=="CO2-FFI",value+cement_carbonation_projection$Average,value))
+
+## calculate uncertainties
+data_projection <- data_projection %>% 
+  mutate(uncertainty = ifelse(label=="CO2-FFI",value*0.08,value*0.7)) %>% 
+  mutate(value=paste0(round(value,1),"±",round(uncertainty,1))) %>% 
+  select(-uncertainty)
+
+data_table <- data_table %>% 
+  rbind(.,data_projection)
+
 
 data_table$label <- as.factor(data_table$label)
 data_table$label <- fct_relevel(data_table$label,"GHG","CO2-FFI","CO2-LULUCF","CH4","N2O","F-gases")
@@ -1163,7 +1188,7 @@ data_conventions_totals <- data_conventions  %>%
 
 
 data_conventions <- data_conventions %>% 
-  group_by(year,convention,component) %>% 
+  group_by(year,convention,component,var) %>% 
   summarise(value=sum(value))
 
 ### data for text
